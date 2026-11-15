@@ -2,7 +2,7 @@
 (()=>{'use strict';
 const el=id=>document.getElementById(id);
 const selector='h1,h2,h3,h4,h5,h6,p,span,a,button,li,label,strong,em,small,blockquote,img,div,section,article,header,footer,nav,main,aside,figure,figcaption';
-const state={id:'',name:'',version:0,doc:null,saved:'',selected:-1,dirty:false,undo:[],redo:[],objectUrl:'',code:false,mode:'edit',projects:[]};
+const state={id:'',name:'',version:0,doc:null,saved:'',selected:-1,dirty:false,undo:[],redo:[],objectUrl:'',code:false,mode:'edit',projects:[],saving:false,loadSeq:0};
 const FONT_FAMILIES=new Set(['Inter','Space Grotesk','DM Sans','Manrope','Outfit','Sora','Archivo','Oswald','Anton','Bricolage Grotesque','Plus Jakarta Sans','Libre Baskerville','system-ui','Georgia','Arial']);
 const SYSTEM_FAMILIES=new Set(['system-ui','Georgia','Arial']);
 const fontHref=name=>'https://fonts.googleapis.com/css2?family='+encodeURIComponent(name).replace(/%20/g,'+')+'&display=swap';
@@ -151,15 +151,19 @@ function download(content,name,mime='text/html;charset=utf-8'){
   const url=URL.createObjectURL(obj),a=document.createElement('a');
   a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
+function hasRawCodeChanges(){
+  return Boolean(state.code&&state.doc&&el('wcSourceCode').value!==serialize(state.doc));
+}
 function sync(){
   state.dirty=!!state.doc&&serialize(state.doc)!==state.saved;
-  el('wcSave').disabled=!state.doc||!state.dirty;
-  el('wcSave').textContent=state.dirty?'● Guardar cambios':'✓ Guardado';
+  const pending=state.dirty||hasRawCodeChanges();
+  el('wcSave').disabled=!state.doc||!pending||state.saving;
+  el('wcSave').textContent=state.saving?'… Guardando':pending?'● Guardar cambios':'✓ Guardado';
   el('wcUndo').disabled=!state.undo.length;
   el('wcRedo').disabled=!state.redo.length;
-  el('wcTitle').textContent=(state.name||'Selecciona una web')+(state.dirty?' · Sin guardar':state.id?' · v'+state.version:'');
+  el('wcTitle').textContent=(state.name||'Selecciona una web')+(pending?' · Sin guardar':state.id?' · v'+state.version:'');
   el('wcHeaderTitle').textContent=state.name||'Elige una web';
-  el('wcStudio').classList.toggle('wc-has-changes',Boolean(state.dirty));
+  el('wcStudio').classList.toggle('wc-has-changes',Boolean(pending));
 }
 function remember(){
   if(!state.doc)return;
@@ -279,7 +283,7 @@ function render(){
   const frame=el('wcFrame'),source=el('wcSourceCode'),blank=el('wcBlank');
   if(!state.doc){frame.classList.add('wc-hidden');source.classList.add('wc-hidden');blank.classList.remove('wc-hidden');return}
   blank.classList.add('wc-hidden');
-  if(state.code){frame.classList.add('wc-hidden');source.classList.remove('wc-hidden');source.value=serialize(state.doc);return}
+  if(state.code){frame.classList.add('wc-hidden');source.classList.remove('wc-hidden');return}
   source.classList.add('wc-hidden');frame.classList.remove('wc-hidden');
   const last=state.objectUrl;
   state.objectUrl=URL.createObjectURL(new Blob([canvasHtml()],{type:'text/html;charset=utf-8'}));
@@ -302,7 +306,10 @@ function selectIndex(index){
   if(node.tagName==='IMG')el('wcImageGroup').open=true;
   if(node.tagName==='A')el('wcLinkGroup').open=true;
   const font=node.style.fontFamily.split(',')[0].replace(/["']/g,'').trim();
-  el('wcFontFamily').value=FONT_FAMILIES.has(font)?font:'';
+  window.WebCreatorFontLibrary?.hydrate(state.doc);
+  window.WebCreatorFontLibrary?.ensureOption(font);
+  el('wcFontFamily').value=(FONT_FAMILIES.has(font)||window.WebCreatorFontLibrary?.has(font))?font:'';
+  window.WebCreatorFontLibrary?.refresh();
   el('wcFontWeight').value=['400','500','600','700','800','900'].includes(node.style.fontWeight)?node.style.fontWeight:'';
   el('wcLineHeight').value=/^(?:\d+(?:\.\d+)?)$/.test(node.style.lineHeight)?node.style.lineHeight:'';
   el('wcLetterSpacing').value=/^-?\d+(?:\.\d+)?px$/.test(node.style.letterSpacing)?parseFloat(node.style.letterSpacing):'';
@@ -337,14 +344,19 @@ addEventListener('message',e=>{
 });
 function check(){if(state.id&&state.doc)return true;status('Abre un proyecto primero.',true);return false}
 async function load(id){
-  if(state.dirty&&!confirm('Hay cambios sin guardar. ¿Descartarlos y abrir otra web?'))return;
+  if(state.saving)return status('Hay un guardado en curso. Abre otra web cuando termine.',true);
+  if((state.dirty||hasRawCodeChanges())&&!confirm('Hay cambios sin guardar. ¿Descartarlos y abrir otra web?'))return;
+  const ticket=++state.loadSeq;
   try{
     const data=await api('/api/projects/'+id);
+    if(ticket!==state.loadSeq||state.saving)return;
     state.id=data.id;state.name=data.name;state.version=data.version;
-    state.doc=parse(data.html);state.saved=serialize(state.doc);state.selected=-1;state.undo=[];state.redo=[];state.mode='edit';state.code=false;
-    sync();render();window.WebCreatorMedia?.warmPreview(serialize(state.doc),()=>{if(state.id===data.id&&!state.code)render()});await list();el('wcVersions').replaceChildren();el('wcTag').textContent='Sin selección';el('wcElementName').textContent='Selecciona algo en el lienzo.';
+    state.doc=parse(data.html);window.WebCreatorFontLibrary?.hydrate(state.doc);state.saved=serialize(state.doc);state.selected=-1;state.undo=[];state.redo=[];state.mode='edit';state.code=false;
+    sync();render();window.WebCreatorMedia?.warmPreview(serialize(state.doc),()=>{if(state.id===data.id&&!state.code)render()});await list();
+    if(ticket!==state.loadSeq)return;
+    el('wcVersions').replaceChildren();el('wcTag').textContent='Sin selección';el('wcElementName').textContent='Selecciona algo en el lienzo.';
     status('Abierto '+state.name+'. Puedes guardar nuevas versiones cuando quieras.');
-  }catch(e){status('No se pudo abrir: '+e.message,true)}
+  }catch(e){if(ticket===state.loadSeq)status('No se pudo abrir: '+e.message,true)}
 }
 function applyCode(){
   if(!state.code)return true;
@@ -352,19 +364,24 @@ function applyCode(){
   if(html.length>300000||!/<html\b/i.test(html)||!/<\/html\s*>\s*$/i.test(html)){
     status('El código debe ser HTML completo (máximo 300.000 caracteres).',true);return false;
   }
-  if(html!==serialize(state.doc)){remember();state.doc=parse(html);state.selected=-1;sync()}
+  if(html!==serialize(state.doc)){remember();state.doc=parse(html);state.selected=-1;el('wcSourceCode').value=serialize(state.doc);sync()}
   return true;
 }
 async function save(label='Edición en Studio'){
+  if(state.saving)return status('El proyecto ya se está guardando.');
   if(!check()||!applyCode())return;
   if(!state.dirty)return status('No hay cambios pendientes.');
-  const b=el('wcSave');b.disabled=true;
+  const projectId=state.id,expectedVersion=state.version,html=serialize(state.doc);
+  state.saving=true;state.loadSeq++;sync();
   try{
-    const html=serialize(state.doc);
-    const row=await mutate('/api/projects/'+state.id,'PATCH',{html,expectedVersion:state.version,label});
-    state.version=row.version;state.saved=html;state.undo=[];state.redo=[];sync();await list();
-    status('✓ Guardada versión '+state.version+'. Puedes continuar otro día.');
-  }catch(e){sync();status('No se pudo guardar: '+e.message,true)}
+    const row=await mutate('/api/projects/'+projectId,'PATCH',{html,expectedVersion,label});
+    if(state.id!==projectId)return;
+    state.version=row.version;state.saved=html;
+    if(serialize(state.doc)===html){state.undo=[];state.redo=[]}
+    sync();await list();
+    status('✓ Guardada versión '+state.version+(!state.dirty&&!hasRawCodeChanges()?'.':' (hay cambios posteriores sin guardar).'));
+  }catch(e){status('No se pudo guardar: '+e.message,true)}
+  finally{state.saving=false;sync()}
 }
 async function open(id=''){
   el('wcStudio').classList.add('open');el('wcStudio').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
@@ -374,10 +391,12 @@ async function open(id=''){
   else if(state.doc)render();
 }
 function close(){
-  if(state.dirty){
+  if(state.saving)return status('Espera a que termine el guardado antes de cerrar.',true);
+  if(state.dirty||hasRawCodeChanges()){
     if(!confirm('Cambios sin guardar. ¿Cerrar Studio y descartarlos?'))return;
     state.doc=parse(state.saved);state.undo=[];state.redo=[];state.selected=-1;state.code=false;sync();
   }
+  state.loadSeq++;
   el('wcStudio').classList.remove('open');el('wcStudio').setAttribute('aria-hidden','true');document.body.style.overflow='';
   if(state.objectUrl){URL.revokeObjectURL(state.objectUrl);state.objectUrl=''}
 }
@@ -413,12 +432,13 @@ el('wcStudio').addEventListener('keydown',e=>{
  if(e.key.toLowerCase()==='z'){e.preventDefault();el(e.shiftKey?'wcRedo':'wcUndo').click()}
  if(e.key.toLowerCase()==='y'){e.preventDefault();el('wcRedo').click()}
 });
-el('wcUndo').addEventListener('click',()=>{if(!check()||!state.undo.length||!applyCode())return;state.redo.push(serialize(state.doc));state.doc=parse(state.undo.pop());state.selected=-1;sync();render()});
-el('wcRedo').addEventListener('click',()=>{if(!check()||!state.redo.length||!applyCode())return;state.undo.push(serialize(state.doc));state.doc=parse(state.redo.pop());state.selected=-1;sync();render()});
+el('wcUndo').addEventListener('click',()=>{if(!check()||!state.undo.length||!applyCode())return;state.redo.push(serialize(state.doc));state.doc=parse(state.undo.pop());state.selected=-1;if(state.code)el('wcSourceCode').value=serialize(state.doc);sync();render()});
+el('wcRedo').addEventListener('click',()=>{if(!check()||!state.redo.length||!applyCode())return;state.undo.push(serialize(state.doc));state.doc=parse(state.redo.pop());state.selected=-1;if(state.code)el('wcSourceCode').value=serialize(state.doc);sync();render()});
 el('wcSave').addEventListener('click',()=>save());
 el('wcEditMode').addEventListener('click',()=>{if(!check()||!applyCode())return;state.mode='edit';state.code=false;render()});
 el('wcPreviewMode').addEventListener('click',()=>{if(!check()||!applyCode())return;state.mode='preview';state.code=false;render()});
-el('wcCodeMode').addEventListener('click',()=>{if(!check())return;if(state.code&&!applyCode())return;state.code=!state.code;render()});
+el('wcCodeMode').addEventListener('click',()=>{if(!check())return;if(state.code&&!applyCode())return;state.code=!state.code;if(state.code)el('wcSourceCode').value=serialize(state.doc);sync();render()});
+el('wcSourceCode').addEventListener('input',sync);
 function setDevice(value){
  device=value;
  el('wcFrame').classList.remove('mobile','tablet');
@@ -438,18 +458,24 @@ function applyStyles(){
   const px=Number(el('wcFont').value);
   if(px>=8&&px<=160)node.style.fontSize=px+'px';
   if(el('wcAlign').value)node.style.textAlign=el('wcAlign').value;
+  const weight=el('wcFontWeight').value;
   const family=el('wcFontFamily').value;
-  if(FONT_FAMILIES.has(family)){
+  if(FONT_FAMILIES.has(family)||window.WebCreatorFontLibrary?.has(family)){
+   const meta=window.WebCreatorFontLibrary?.get(family);
+   const previousFont=node.style.fontFamily;
    node.style.fontFamily=SYSTEM_FAMILIES.has(family)?family:'"'+family+'",sans-serif';
-   if(!SYSTEM_FAMILIES.has(family)){
-    let link=[...state.doc.querySelectorAll('link[data-wc-font]')].find(x=>x.getAttribute('data-wc-font')===family);
+   if(meta?.source==='uploaded'){
+    if(!window.WebCreatorFontLibrary.embed(state.doc,family))node.style.fontFamily=previousFont;
+   }else if(!SYSTEM_FAMILIES.has(family)&&meta?.source!=='local'&&meta?.source!=='system'){
+    let link=[...state.doc.querySelectorAll('link[data-wc-font]')].find(x=>x.getAttribute('data-wc-font')===family&&x.getAttribute('data-wc-font-weight')===(weight||'400'));
     if(!link){
      link=state.doc.createElement('link');link.rel='stylesheet';
-     link.setAttribute('data-wc-font',family);link.href=fontHref(family);state.doc.head.append(link);
+     link.setAttribute('data-wc-font',family);
+     link.setAttribute('data-wc-font-weight',weight||'400');
+     link.href=window.WebCreatorFontLibrary?.href(family,weight)||fontHref(family);state.doc.head.append(link);
     }
    }
   }
-  const weight=el('wcFontWeight').value;
   if(['400','500','600','700','800','900'].includes(weight))node.style.fontWeight=weight;
   const line=Number(el('wcLineHeight').value);
   if(el('wcLineHeight').value!==''&&line>=.8&&line<=3)node.style.lineHeight=String(line);

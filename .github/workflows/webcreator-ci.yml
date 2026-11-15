@@ -9,10 +9,12 @@ on:
       - feature/official-wayup-logo
       - feature/studio-pro-fonts
       - feature/studio-editor-premium-v2
+      - feature/studio-font-library-complete
   pull_request:
     branches:
       - main
       - feature/biblioteca-canvas
+      - feature/studio-editor-premium-v2
 permissions:
   contents: read
 jobs:
