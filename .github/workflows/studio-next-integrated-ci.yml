@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - feature/studio-next-unified-worker
+      - fix/studio-single-entry-navigation
   pull_request:
     branches:
       - feature/studio-integrated-premium-theme-fonts
+      - feature/studio-next-unified-worker
   workflow_dispatch:
 
 permissions:

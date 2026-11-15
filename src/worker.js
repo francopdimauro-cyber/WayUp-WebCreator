@@ -201,6 +201,9 @@ export default {
   catch { return send({error:'No se pudo comprobar tu identidad en Cloudflare Access.'},403); }
   if(identity?.email?.toLowerCase()!=='francopdimauro@gmail.com') return send({error:'Usuario no autorizado para WebCreator.'},403);
   const url = new URL(request.url);
+  // Enlaces antiguos: entrar en Studio Next sin mostrar el editor intermedio.
+  if(request.method==='GET' && (url.pathname==='/' || url.pathname==='/index.html') && url.searchParams.get('studio')==='1')
+    return Response.redirect(new URL('/studio-next/',url),302);
   // Studio Next static resources share this exact Worker, origin and Cloudflare Access gate.
   if(url.pathname==='/studio-next'||url.pathname==='/studio-next/'||url.pathname==='/studio-next/index.html'||url.pathname.startsWith('/_next/static/'))
     return wayupNextAsset(request,url);

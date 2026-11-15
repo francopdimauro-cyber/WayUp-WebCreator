@@ -447,7 +447,7 @@ function close(){
   el('wcStudio').classList.remove('open');el('wcStudio').setAttribute('aria-hidden','true');document.body.style.overflow='';
   if(state.objectUrl){URL.revokeObjectURL(state.objectUrl);state.objectUrl=''}
 }
-el('wcOpen')?.addEventListener('click',()=>open());
+el('wcOpen')?.addEventListener('click',()=>{location.assign('/studio-next/');});
 el('wcOpenResult')?.addEventListener('click',()=>dispatchEvent(new Event('wc-studio-current-request')));
 el('wcClose').addEventListener('click',close);
 el('wcReload').addEventListener('click',list);

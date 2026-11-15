@@ -64,7 +64,8 @@ test('La navegación ofrece regreso a WebCreator y apertura de proyectos reales,
  assert.match(ui,/studioProject/);
  assert.match(ui,/WebCreatorStudio\?\.open\(projectId\)/);
  assert.match(ui,/wcStudioNextHome/);
- assert.match(ui,/wcThemeToggle/);
+ assert.match(ui,/THEME_KEY/);
+ assert.match(ui,/studioProject/);
  assert.match(nav,/Ver|webs reales|Mis webs reales/i);
  assert.doesNotMatch(nav,/method:\s*'PATCH'|method:\s*'POST'|localStorage\.setItem/);
 });

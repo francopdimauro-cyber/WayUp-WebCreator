@@ -22,11 +22,11 @@ test('la interfaz premium está dentro de WebCreator y no crea otro editor',()=>
 
 test('modos claro, oscuro y clásico funcionan sin duplicar el estado de tema',()=>{
  for(const id of ['wcStudioThemeControl','wcStudioLayoutControl'])assert.match(logic,new RegExp(id));
- assert.match(logic,/getElementById\('wcThemeToggle'\)/);
- assert.match(logic,/original\.click\(\)/);
- assert.match(logic,/wc-theme-mode/);
+ assert.match(logic,/wc-studio-integrated-theme-v2/);
+ assert.match(logic,/read\(THEME_KEY,'dark'\)/);
+ assert.match(logic,/write\(THEME_KEY,theme\)/);
  assert.match(logic,/wc-studio-unified-ui-v1/);
- assert.match(logic,/data\.wcTheme|dataset\.wcTheme/);
+ assert.doesNotMatch(logic,/document\.documentElement\.dataset\.wcTheme=/);
  assert.match(logic,/dataset\.wcUi=layout/);
  assert.match(logic,/dataset\.wcMode=theme/);
  assert.match(logic,/wcClose/);

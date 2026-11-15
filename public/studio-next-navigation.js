@@ -33,8 +33,8 @@
   document.head.append(style);
   const bar=make('nav');bar.id='wayup-real-projects-bar';
   bar.setAttribute('aria-label','Navegación integrada de WAYUP');
-  const home=make('a','← WebCreator');home.href='/?studio=1';
-  home.title='Volver al creador con el editor real';
+  const home=make('a','← WebCreator');home.href='/';
+  home.title='Volver al generador WebCreator sin abrir otro editor';
   const projects=make('button','Mis webs reales');projects.type='button';
   projects.setAttribute('aria-expanded','false');projects.setAttribute('aria-controls','wayup-real-projects-panel');
   const panel=make('section');panel.id='wayup-real-projects-panel';panel.hidden=true;panel.setAttribute('aria-label','Proyectos guardados de WebCreator');
