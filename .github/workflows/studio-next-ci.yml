@@ -1,0 +1,49 @@
+name: WAYUP Studio Next · Build y validación
+on:
+  push:
+    branches:
+      - feature/studio-next-premium-redesign
+    paths:
+      - 'studio-next/**'
+      - '.github/workflows/studio-next-ci.yml'
+  pull_request:
+    branches:
+      - feature/studio-canvas-direct-manipulation
+    paths:
+      - 'studio-next/**'
+      - '.github/workflows/studio-next-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Next.js · Tests, TypeScript y compilación
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: studio-next
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Comprobar funciones del editor
+        run: npm test
+      - name: Compilar Next.js para producción
+        run: npm run build
+      - name: Validar TypeScript
+        run: npm run typecheck
+      - name: Conservar compilación para revisión
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayup-studio-next-build
+          path: studio-next/.next/
+          include-hidden-files: true
+          retention-days: 7
