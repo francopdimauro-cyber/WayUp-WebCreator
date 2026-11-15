@@ -1,0 +1,70 @@
+/* WAYUP Studio button design gallery — host-only styles; exported buttons are self-contained. */
+#wcStudio #wcButtonShortcut{
+ display:inline-flex;align-items:center;justify-content:center;gap:6px;
+ border-color:var(--s-accent,#3265ef)!important;
+ color:var(--s-accent,#3265ef)!important;
+ background:var(--s-panel,#fff)!important;
+}
+#wcStudio #wcButtonShortcut[hidden],#wcStudio #wcButtonStylesGroup.wc-hidden{display:none!important}
+#wcStudio .wc-button-studio-body{display:flex!important;flex-direction:column!important;gap:12px!important}
+#wcStudio .wc-button-studio-desc{margin:0;font-size:11px;line-height:1.55;color:var(--s-fg-muted,#6a7488)}
+#wcStudio .wc-button-gallery-tools{display:flex;align-items:center;gap:8px}
+#wcStudio #wcButtonSearch{flex:1;min-width:0;font-size:12px!important}
+#wcStudio #wcButtonCount{flex-shrink:0;white-space:nowrap;font:700 10px/1.3 system-ui,sans-serif;color:var(--s-fg-muted,#6a7488)}
+#wcStudio .wc-button-gallery-filters{display:flex;align-items:center;gap:5px;overflow-x:auto;padding:0 0 4px;scrollbar-width:thin}
+#wcStudio .wc-button-gallery-filters button{
+ flex:0 0 auto;min-height:29px;padding:5px 9px!important;
+ background:var(--s-panel,#fff)!important;border:1px solid var(--s-border,#d9deea)!important;
+ color:var(--s-fg-muted,#6a7488)!important;border-radius:100px!important;
+ font:750 10px/1 system-ui,sans-serif!important;white-space:nowrap;
+}
+#wcStudio .wc-button-gallery-filters button[aria-pressed=true]{
+ background:var(--s-accent,#3265ef)!important;border-color:var(--s-accent,#3265ef)!important;color:#fff!important
+}
+#wcStudio .wc-button-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:370px;overflow-y:auto;padding:4px;scrollbar-width:thin}
+#wcStudio .wc-button-choice{
+ box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:center!important;
+ min-width:0!important;min-height:94px!important;padding:11px 8px!important;
+ text-align:left!important;border:1px solid var(--s-border,#d9deea)!important;border-radius:11px!important;
+ background:var(--s-panel,#fff)!important;color:var(--s-fg,#1d2940)!important;
+ box-shadow:none!important;transform:none!important;position:relative!important;
+}
+#wcStudio .wc-button-choice:hover{
+ border-color:var(--s-accent,#3265ef)!important;
+ box-shadow:0 5px 15px rgba(43,90,190,.10)!important;
+}
+#wcStudio .wc-button-choice[aria-pressed=true]{
+ border:2px solid var(--s-accent,#3265ef)!important;background:var(--s-accent-soft,#eff4ff)!important
+}
+#wcStudio .wc-button-choice[aria-pressed=true]:after{
+ content:'✓';position:absolute;top:4px;right:7px;font:800 12px system-ui;color:var(--s-accent,#3265ef)
+}
+#wcStudio .wc-button-demo{
+ display:inline-flex;align-self:center;margin:3px auto 9px;overflow:hidden;text-overflow:ellipsis;
+ transform:none!important;pointer-events:none;white-space:nowrap
+}
+#wcStudio .wc-button-choice-name{display:block;margin:0 1px;font-size:10.5px;font-weight:800;color:var(--s-fg,#1d2940);line-height:1.3}
+#wcStudio .wc-button-choice small{font-size:9px;font-weight:500;line-height:1.3;color:var(--s-fg-muted,#6a7488);margin:2px 1px 0}
+#wcStudio .wc-button-current{display:flex;align-items:center;justify-content:space-between;gap:8px;border-block:1px solid var(--s-border,#d9deea);padding:10px 0}
+#wcStudio #wcButtonCurrent{font-size:11px;font-weight:800;color:var(--s-fg,#1d2940)}
+#wcStudio #wcButtonRestore{padding:6px 8px!important;min-width:0!important;border:1px solid var(--s-border,#d9deea)!important;color:var(--s-fg-muted,#6a7488)!important;background:var(--s-panel,#fff)!important;border-radius:7px!important;font-size:10px!important;font-weight:700!important}
+#wcStudio #wcButtonRestore:disabled{opacity:.4;cursor:not-allowed}
+#wcStudio .wc-button-customize{margin:0!important;border:1px solid var(--s-border,#d9deea)!important;border-radius:10px;overflow:hidden}
+#wcStudio .wc-button-customize>summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:11px 12px;font-size:11px;font-weight:850;color:var(--s-fg,#1d2940);background:var(--s-panel,#fff)}
+#wcStudio .wc-button-custom-inner{display:flex;flex-direction:column;gap:11px;padding:12px;border-top:1px solid var(--s-border,#d9deea)}
+#wcStudio .wc-button-custom-inner label{min-width:0;font-size:10.5px}
+#wcStudio .wc-button-custom-inner input,#wcStudio .wc-button-custom-inner select{min-width:0;max-width:100%}
+#wcStudio .wc-button-swatch-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#wcStudio .wc-button-swatch-row label{display:flex;flex-direction:column;gap:4px}
+#wcStudio .wc-button-swatch-row input[type=color]{display:block;width:100%;height:32px;border-radius:7px;padding:2px;min-height:0}
+#wcStudio .wc-button-custom-inner .wc-field-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#wcStudio .wc-button-help{margin:0;color:var(--s-fg-muted,#6a7488);font-size:10px;line-height:1.55}
+#wcStudio #wcButtonCustomize{min-height:36px}
+#wcStudio .wc-button-choice:focus-visible,#wcStudio .wc-button-gallery-filters button:focus-visible,#wcStudio #wcButtonShortcut:focus-visible{
+ outline:2px solid var(--s-accent,#3265ef)!important;outline-offset:3px
+}
+@media(max-width:480px){
+ #wcStudio .wc-button-gallery{grid-template-columns:repeat(2,minmax(0,1fr));max-height:300px}
+ #wcStudio .wc-button-choice{padding:8px 5px!important;min-height:86px!important}
+ #wcStudio .wc-button-demo{font-size:10px!important;padding:6px 8px!important}
+}
