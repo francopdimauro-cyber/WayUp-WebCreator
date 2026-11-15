@@ -24,6 +24,8 @@ const buttonLibraryCss=read('public/studio-button-library.css');
 const buttonLibraryJs=read('public/studio-button-library.js');
 const canvasMotionJs=read('public/studio-canvas-motion.js');
 const canvasMotionCss=read('public/studio-canvas-motion.css');
+const integratedPremiumCss=read('public/studio-premium-integrated.css');
+const unifiedAppearanceJs=read('public/studio-unified-appearance.js');
 const mediaServer=read('src/studio-media.js');
 const studioServer=read('src/studio.js');
 const worker=read('src/worker.js');
@@ -31,8 +33,8 @@ if(!worker.includes('__WEBCREATOR_HTML__')||!worker.includes('/*__WEBCREATOR_STU
   throw new Error('Faltan puntos de inserción de Studio');
 if(!base.includes('id="downloadZip"')||!base.includes('id="preview"'))
   throw new Error('Faltan controles del constructor original');
-const html=base.replace('__WAYUP_OFFICIAL_LOGO__','data:image/png;base64,'+originalLogoBase64).replace('</head>','<style>\n'+css+'\n'+theme+'\n'+compact+'\n'+precisionDark+'\n'+vibrant+'\n'+urbanType+'\n'+officialCss+'\n'+mediaCss+'\n'+studioPro+'\n'+fontLibraryCss+'\n'+smartToolsCss+'\n'+buttonLibraryCss+'\n'+canvasMotionCss+'\n</style></head>')
-  .replace('</body>','<script>\n'+studioClient+'\n</script><script>\n'+fontLibraryJs+'\n</script><script>\n'+smartToolsJs+'\n</script><script>\n'+buttonLibraryJs+'\n</script><script>\n'+canvasMotionJs+'\n</script><script>\n'+commandPalette+'\n</script><script>\n'+themeToggle+'\n</script><script>\n'+mediaClient+'\n</script></body>');
+const html=base.replace('__WAYUP_OFFICIAL_LOGO__','data:image/png;base64,'+originalLogoBase64).replace('</head>','<style>\n'+css+'\n'+theme+'\n'+compact+'\n'+precisionDark+'\n'+vibrant+'\n'+urbanType+'\n'+officialCss+'\n'+mediaCss+'\n'+studioPro+'\n'+fontLibraryCss+'\n'+smartToolsCss+'\n'+buttonLibraryCss+'\n'+canvasMotionCss+'\n'+integratedPremiumCss+'\n</style></head>')
+  .replace('</body>','<script>\n'+studioClient+'\n</script><script>\n'+fontLibraryJs+'\n</script><script>\n'+smartToolsJs+'\n</script><script>\n'+buttonLibraryJs+'\n</script><script>\n'+canvasMotionJs+'\n</script><script>\n'+commandPalette+'\n</script><script>\n'+themeToggle+'\n</script><script>\n'+unifiedAppearanceJs+'\n</script><script>\n'+mediaClient+'\n</script></body>');
 const built=worker.replace('/*__WEBCREATOR_STUDIO_SERVER__*/',studioServer+'\n'+mediaServer)
   .replace('__WEBCREATOR_HTML__',JSON.stringify(html));
 mkdirSync(new URL('../dist/',import.meta.url),{recursive:true});

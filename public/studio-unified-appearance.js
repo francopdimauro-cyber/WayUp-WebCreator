@@ -1,0 +1,56 @@
+/* WAYUP Studio — unified professional interface.
+   A visual skin only. No project API, Canvas document, font import,
+   D1/R2 connection, or generation flow is replaced.
+*/
+(function wayupUnifiedStudio(){
+ 'use strict';
+ const studio=document.getElementById('wcStudio');
+ const actions=studio?.querySelector('.wc-top-actions');
+ const anchor=document.getElementById('wcUndo');
+ if(!studio||!actions||!anchor||document.getElementById('wcStudioThemeControl'))return;
+ const UI_KEY='wc-studio-unified-ui-v1';
+ // Reutilizar el tema global del constructor: una sola preferencia Claro/Oscuro.
+ const read=(key,fallback)=>{try{return localStorage.getItem(key)||fallback}catch{return fallback}};
+ const write=(key,value)=>{try{localStorage.setItem(key,value)}catch{}};
+ const currentRoot=()=>document.documentElement.dataset.wcTheme==='light'?'light':'dark';
+ let theme=currentRoot();
+ let layout=read(UI_KEY,'premium')==='legacy'?'legacy':'premium';
+ const row=document.createElement('div');row.className='wc-unified-top-actions';
+ row.setAttribute('role','group');row.setAttribute('aria-label','Apariencia de WAYUP Studio');
+ const themeButton=document.createElement('button'),layoutButton=document.createElement('button');
+ themeButton.type='button';themeButton.id='wcStudioThemeControl';
+ themeButton.className='wc-toolbar-quiet';
+ layoutButton.type='button';layoutButton.id='wcStudioLayoutControl';
+ layoutButton.className='wc-toolbar-quiet';
+ row.append(themeButton,layoutButton);
+ actions.insertBefore(row,anchor);
+ function paint(){
+   studio.dataset.wcUi=layout;
+   studio.dataset.wcMode=theme;
+   const nextTheme=theme==='dark'?'claro':'oscuro';
+   themeButton.textContent=theme==='dark'?'☀ Claro':'☾ Oscuro';
+   themeButton.setAttribute('aria-label','Activar modo '+nextTheme+' en WAYUP Studio');
+   themeButton.title='Cambiar al modo '+nextTheme;
+   themeButton.setAttribute('aria-pressed',String(theme==='dark'));
+   layoutButton.textContent=layout==='premium'?'◫ Diseño clásico':'✦ Diseño profesional';
+   layoutButton.setAttribute('aria-label',layout==='premium'?'Cambiar al diseño clásico del editor':'Activar diseño profesional del editor');
+   layoutButton.setAttribute('aria-pressed',String(layout==='premium'));
+   layoutButton.title=layout==='premium'?'Volver a la interfaz anterior sin perder cambios':'Activar interfaz profesional conservando proyectos y fuentes';
+ }
+ themeButton.addEventListener('click',()=>{
+   const original=document.getElementById('wcThemeToggle');
+   if(original){original.click();theme=currentRoot();}
+   else{theme=theme==='dark'?'light':'dark';document.documentElement.dataset.wcTheme=theme;write('wc-theme-mode',theme);}
+   paint();
+ });
+ const existingToggle=document.getElementById('wcThemeToggle');
+ if(existingToggle)existingToggle.addEventListener('click',()=>{queueMicrotask(()=>{theme=currentRoot();paint()})});
+ layoutButton.addEventListener('click',()=>{
+   layout=layout==='premium'?'legacy':'premium';write(UI_KEY,layout);paint();
+ });
+ const close=document.getElementById('wcClose');
+ if(close){close.setAttribute('title','Volver a WebCreator');close.setAttribute('aria-label','Cerrar Studio y volver a WebCreator')}
+ const label=studio.querySelector('.wc-identity-sub');
+ if(label)label.textContent='EDITOR INTEGRADO / WEBCREATOR';
+ paint();
+})();
