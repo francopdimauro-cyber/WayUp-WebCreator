@@ -45,4 +45,31 @@ const text = historyReducer(redone,{type:'modificar',elementId:'cta',patch:{text
 assert.equal(text.present.elements.cta.href,'#contacto','El contenido no altera el destino del botón');
 const unknown = historyReducer(text,{type:'modificar',elementId:'nodo-desconocido',patch:{text:'N/A'}});
 assert.equal(unknown,text,'Un nodo desconocido no modifica el estado');
-console.log(`Correcto: ${paths.length} archivos TypeScript/TSX, 21 estilos, historial, acciones y enlaces.`);
+
+const catalog = await loadTS('lib/font-catalog.ts');
+assert.ok(catalog.initialFonts.length>=135,'Se han recuperado las familias tipográficas del Studio anterior');
+assert.ok(catalog.initialFonts.some(f=>f.family==='Playfair Display'),'Las fuentes editoriales están incluidas');
+const remote = catalog.parseFontsource([
+ {id:'inter',family:'Inter',type:'google',category:'sans-serif',weights:[400,700]},
+ {id:'open-family',family:'Open Family',type:'other',category:'display',weights:[400]},
+ {id:'../unsafe',family:'Malicious',type:'other'},
+ {id:'bad',family:'Bad;',type:'google'}
+]);
+assert.equal(remote.length,2,'Fontsource incluye Google/Open y filtra entradas maliciosas');
+assert.equal(remote[1].source,'open');
+assert.equal(catalog.mergeFonts(remote,[{family:'Inter',source:'local'}]).find(f=>f.family==='Inter').source,'local');
+assert.match(catalog.fontStylesheet(remote[0]),/cdn\.jsdelivr\.net\/fontsource\/css\/inter@latest/);
+assert.equal(catalog.cssFamily('Playfair Display'),'"Playfair Display", sans-serif');
+assert.equal(catalog.familyFromCSS('"Playfair Display", sans-serif'),'Playfair Display');
+assert.equal(catalog.validFamily('A";color:red'),false);
+assert.match(catalog.WAYUP_WINDOWS_FONT_EXPORT,/wayup-local-fonts-v1/);
+assert.match(catalog.WAYUP_WINDOWS_FONT_EXPORT,/InstalledFontCollection/);
+const inspectorSource=readFileSync(join(root,'components/studio/inspector.tsx'),'utf8');
+const fontPickerSource=readFileSync(join(root,'components/studio/font-picker.tsx'),'utf8');
+assert.match(inspectorSource,/<FontPicker /);
+assert.doesNotMatch(inspectorSource,/const FONT_OPTIONS =/);
+for(const feature of ['queryLocalFonts','api.fontsource.org','FontFace','indexedDB','Exportar listado Windows','Importar lista','\.woff2','role="listbox"']){
+ const combined=fontPickerSource+'\\n'+readFileSync(join(root,'lib/font-catalog.ts'),'utf8');
+ assert.ok(combined.includes(feature.replace('\\\\','\\')),'La biblioteca contiene '+feature);
+}
+console.log(`Correcto: ${paths.length} archivos TypeScript/TSX, catálogo completo Google/Open/local/importadas, 21 botones e historial.`);

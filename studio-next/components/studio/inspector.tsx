@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import type { ElementStyle, InspectorTab, ProjectDoc, StudioElement } from '@/lib/studio-types';
 import { BUTTON_PRESETS } from '@/lib/demo-project';
+import { FontPicker } from './font-picker';
 
 interface InspectorProps {
   doc: ProjectDoc;
@@ -49,24 +50,15 @@ function ControlLine({label,children}:{label:string;children:ReactNode}) {
   return <div className="mb-3 flex items-center justify-between gap-3"><span className="text-[10.5px] text-[#8994a6]">{label}</span>{children}</div>;
 }
 
-const FONT_OPTIONS = [
-  ['Arial, sans-serif', 'Arial'],
-  ['Inter, sans-serif', 'Inter'],
-  ['Geist, sans-serif', 'Geist'],
-  ['Georgia, serif', 'Georgia'],
-  ['"Space Grotesk", sans-serif', 'Space Grotesk'],
-  ['"DM Sans", sans-serif', 'DM Sans'],
-];
 
 export function Inspector({ doc, selectedId, tab, onTab, onStyle, onElement, mobileOpen, onCloseMobile }: InspectorProps) {
   const selected = selectedId ? doc.elements[selectedId] : null;
   const [textDraft, setTextDraft] = useState('');
   const [linkDraft, setLinkDraft] = useState('');
   const [linkError, setLinkError] = useState('');
-  const [fontOpen, setFontOpen] = useState(false);
   const [buttonCategory, setButtonCategory] = useState('Todos');
   const [buttonSearch, setButtonSearch] = useState('');
-  useEffect(()=>{setTextDraft(selected?.text||'');setLinkDraft(selected?.href||'');setLinkError('');setFontOpen(false)},[selectedId, selected?.text, selected?.href]);
+  useEffect(()=>{setTextDraft(selected?.text||'');setLinkDraft(selected?.href||'');setLinkError('')},[selectedId, selected?.text, selected?.href]);
   const style = selected?.style;
   const visibleButtons = BUTTON_PRESETS.filter(p => (buttonCategory==='Todos' || p.group===buttonCategory) && (p.title.toLocaleLowerCase('es').includes(buttonSearch.toLocaleLowerCase('es'))));
 
@@ -121,12 +113,7 @@ export function Inspector({ doc, selectedId, tab, onTab, onStyle, onElement, mob
           <div className="flex items-center justify-between"><span className="text-[10px] text-faint">Posicionamiento libre</span><button className="ui-ghost h-[28px]! px-2.5!" onClick={()=>onStyle(selected.id,{x:0,y:0})} title="Restablecer posición"><RotateCcw size={12}/>Restablecer</button></div>
         </Group>
         <Group title="Tipografía">
-          <div className="relative mb-3"><label className="field-label">Familia tipográfica</label>
-            <button className="field-input flex items-center justify-between text-left" aria-expanded={fontOpen} aria-label="Elegir familia tipográfica" onClick={()=>setFontOpen(x=>!x)}><span className="truncate" style={{fontFamily:style.fontFamily}}>{FONT_OPTIONS.find(([val])=>val===style.fontFamily)?.[1]||'Personalizada'}</span><ChevronDown size={14} className="text-faint"/></button>
-            {fontOpen && <div className="absolute inset-x-0 top-[58px] z-20 rounded-xl border border-white/[.1] bg-[#20252e] p-1.5 shadow-panel">
-              {FONT_OPTIONS.map(([val,label])=><button key={val} className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[12px] text-[#c8d0db] transition-colors hover:bg-white/[.07]" style={{fontFamily:val}} onClick={()=>{onStyle(selected.id,{fontFamily:val});setFontOpen(false)}}>{label}{style.fontFamily===val&&<Check size={13} className="text-brand"/>}</button>)}
-            </div>}
-          </div>
+          <FontPicker value={style.fontFamily} onChange={fontFamily=>onStyle(selected.id,{fontFamily})}/>
           <div className="mb-3 grid grid-cols-2 gap-2.5"><NumberField label="Tamaño" value={style.fontSize} unit="px" min={10} max={96} onCommit={fontSize=>onStyle(selected.id,{fontSize})}/>
             <div><label className="field-label">Peso</label><select className="field-input" value={style.fontWeight} onChange={e=>onStyle(selected.id,{fontWeight:Number(e.target.value)})}>
               {[400,500,600,700,800,900].map(n=><option value={n} key={n}>{n===400?'Regular':n===500?'Medio':n===600?'Seminegrita':n===700?'Negrita':'Extra'} · {n}</option>)}

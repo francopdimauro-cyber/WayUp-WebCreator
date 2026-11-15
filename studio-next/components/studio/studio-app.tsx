@@ -9,6 +9,7 @@ import { TopBar } from './top-bar';
 import { DEMO_PROJECT } from '@/lib/demo-project';
 import { loadLocalDemo, persistLocalDemo } from '@/lib/studio-service';
 import { historyReducer } from '@/lib/studio-store';
+import { ensureDocumentFont } from '@/lib/font-catalog';
 import type { Device, ElementStyle, InspectorTab, Mode, StudioElement } from '@/lib/studio-types';
 
 export function StudioApp() {
@@ -25,6 +26,10 @@ export function StudioApp() {
   const [notice, setNotice] = useState('');
   const doc = history.present;
   const dirty = useMemo(()=>JSON.stringify(doc) !== savedContent,[doc,savedContent]);
+
+  useEffect(()=>{
+    for(const element of Object.values(doc.elements))ensureDocumentFont(element.style.fontFamily);
+  },[doc]);
 
   useEffect(()=>{
     if(window.innerWidth<=1024)setNavCollapsed(true);
