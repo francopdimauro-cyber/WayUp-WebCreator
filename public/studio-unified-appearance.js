@@ -24,6 +24,22 @@
  layoutButton.className='wc-toolbar-quiet';
  row.append(themeButton,layoutButton);
  actions.insertBefore(row,anchor);
+ const nextLink=document.createElement('a');
+ nextLink.id='wcStudioNextIntegrated';
+ nextLink.className='wc-toolbar-quiet wc-studio-next-link';
+ nextLink.href='/studio-next/';
+ nextLink.textContent='✦ Studio Next';
+ nextLink.setAttribute('aria-label','Abrir Studio Next integrado dentro de WebCreator');
+ nextLink.title='Abrir la nueva vista de diseño en este mismo WebCreator';
+ actions.insertBefore(nextLink,anchor);
+ const homepageHeader=document.querySelector('.wrap>header');
+ if(homepageHeader&&!document.getElementById('wcStudioNextHome')){
+   const homeLink=document.createElement('a');homeLink.href='/studio-next/';
+   homeLink.id='wcStudioNextHome';homeLink.className='wc-open-btn wc-studio-next-home';
+   homeLink.textContent='✦ Studio Next';homeLink.title='Abrir el Studio Next de este WebCreator';
+   const command=document.getElementById('cmdOpen');
+   homepageHeader.insertBefore(homeLink,command||null);
+ }
  function paint(){
    studio.dataset.wcUi=layout;
    studio.dataset.wcMode=theme;
@@ -53,4 +69,15 @@
  const label=studio.querySelector('.wc-identity-sub');
  if(label)label.textContent='EDITOR INTEGRADO / WEBCREATOR';
  paint();
+ const params=new URL(location.href).searchParams;
+ const projectId=params.get('studioProject');
+ if(projectId&&/^[a-f0-9-]{36}$/i.test(projectId)){
+   Promise.resolve(window.WebCreatorStudio?.open(projectId)).then(()=>{
+     history.replaceState(null,'',location.pathname);
+   }).catch(()=>{});
+ }else if(params.get('studio')==='1'){
+   Promise.resolve(window.WebCreatorStudio?.open()).then(()=>{
+     history.replaceState(null,'',location.pathname);
+   }).catch(()=>{});
+ }
 })();

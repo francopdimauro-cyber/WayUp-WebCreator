@@ -1,5 +1,6 @@
 // WAYUP WebCreator: isolated Cloudflare Worker. Never store API keys in code.
 const HTML = __WEBCREATOR_HTML__;
+/*__WEBCREATOR_STUDIO_NEXT__*/
 const MODELS=Object.freeze({builder:'nvidia/nemotron-3-ultra-550b-a55b:free',vision:'nvidia/nemotron-3.5-super-vl:free',repair:'cohere/north-mini-code:free'});
 const MODEL=MODELS.builder;
 const OPENROUTER_URL='https://openrouter.ai/api/v1/chat/completions';
@@ -200,6 +201,9 @@ export default {
   catch { return send({error:'No se pudo comprobar tu identidad en Cloudflare Access.'},403); }
   if(identity?.email?.toLowerCase()!=='francopdimauro@gmail.com') return send({error:'Usuario no autorizado para WebCreator.'},403);
   const url = new URL(request.url);
+  // Studio Next static resources share this exact Worker, origin and Cloudflare Access gate.
+  if(url.pathname==='/studio-next'||url.pathname==='/studio-next/'||url.pathname==='/studio-next/index.html'||url.pathname.startsWith('/_next/static/'))
+    return wayupNextAsset(request,url);
   if(request.method==='GET' && (url.pathname==='/' || url.pathname==='/index.html')) {
    return new Response(HTML, {headers:{'content-type':'text/html; charset=utf-8','x-content-type-options':'nosniff','referrer-policy':'no-referrer','x-frame-options':'DENY','cache-control':'public, max-age=120'}});
   }

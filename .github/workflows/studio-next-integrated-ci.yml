@@ -1,0 +1,46 @@
+name: WAYUP WebCreator + Studio Next · Worker integrado
+on:
+  push:
+    branches:
+      - feature/studio-next-unified-worker
+  pull_request:
+    branches:
+      - feature/studio-integrated-premium-theme-fonts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  integrated:
+    name: Compilar ambos estudios en un Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependencias de Studio Next
+        run: npm install --no-audit --no-fund
+        working-directory: studio-next
+      - name: Validar prototipo Next
+        run: npm test
+        working-directory: studio-next
+      - name: Compilar React / Next.js
+        run: npm run build
+        working-directory: studio-next
+      - name: Empaquetar Next dentro de WebCreator y ejecutar regresiones
+        run: npm run check
+        env:
+          STUDIO_NEXT_BUNDLE_REQUIRED: '1'
+      - name: Comprobar que las rutas y los assets están presentes
+        run: |
+          node --input-type=module -e "import fs from 'node:fs';const w=fs.readFileSync('dist/worker.js','utf8');if(!w.includes('/_next/static/')||!w.includes('wayupIntegratedNextNavigation')||w.includes('WAYUP_NEXT_FILES = new Map(Object.entries({}))'))process.exit(1);console.log('WebCreator + Studio Next empaquetados');"
+      - name: Guardar Worker unificado compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayup-webcreator-unified-worker
+          path: dist/worker.js
+          retention-days: 7

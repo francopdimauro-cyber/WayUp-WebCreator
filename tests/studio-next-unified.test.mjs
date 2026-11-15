@@ -1,0 +1,70 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {test} from 'node:test';
+const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const worker=source('src/worker.js');
+const route=source('src/studio-next-route.js');
+const nav=source('public/studio-next-navigation.js');
+const build=source('scripts/build.mjs');
+const dist=source('dist/worker.js');
+test('La vista Next está dentro del mismo Worker y detrás de Cloudflare Access',()=>{
+ const gate=worker.indexOf("if(!ctx?.access)");
+ const identity=worker.indexOf("identity?.email?.toLowerCase()");
+ const next=worker.indexOf("return wayupNextAsset(request,url)");
+ const projects=worker.indexOf("handleStudio(request,env,url)");
+ assert.ok(gate>0&&identity>gate&&next>identity&&projects>next);
+ assert.match(worker,/\/studio-next\//);
+ assert.match(worker,/\/_next\/static\//);
+ assert.match(worker,/__WEBCREATOR_STUDIO_NEXT__/);
+});
+test('Las rutas de Next no usan otro Worker ni otra cuenta ni bypass de acceso',()=>{
+ assert.doesNotThrow(()=>new vm.Script(nav));
+ assert.doesNotMatch(route,/https?:\/\/wayup-studio-next-preview/);
+ assert.doesNotMatch(route,/fetch\s*\(/);
+ assert.match(route,/wayupNextAsset/);
+ assert.match(nav,/fetch\('\/api\/projects'/);
+ assert.match(nav,/\/\?studioProject=/);
+ assert.match(nav,/Para editar y guardar una web real utiliza el editor integrado/);
+ assert.doesNotMatch(nav,/innerHTML\s*=/);
+});
+test('Las rutas sirven HTML y assets con MIME correcto y métodos limitados',async()=>{
+ const data={'/':[Buffer.from('<html><body>Next</body></html>').toString('base64'),'text/html; charset=utf-8'],
+  '/_next/static/demo.css':[Buffer.from('html{color:red}').toString('base64'),'text/css; charset=utf-8']};
+ const body=route.replace('__WEBCREATOR_NEXT_ASSETS__',JSON.stringify(data)).replace('__WEBCREATOR_NEXT_NAV__',JSON.stringify(nav));
+ const context=vm.createContext({atob,Headers,Response,Uint8Array,TextDecoder,URL});
+ vm.runInContext(body,context);
+ const fetchFn=vm.runInContext('wayupNextAsset',context);
+ const get=async(path,method='GET')=>fetchFn({method},new URL('https://webcreator.example'+path));
+ const home=await get('/studio-next/');
+ assert.equal(home.status,200);
+ assert.match(await home.text(),/wayupIntegratedNextNavigation/);
+ assert.equal(home.headers.get('cache-control'),'private, no-store');
+ const css=await get('/_next/static/demo.css');
+ assert.equal(css.status,200);
+ assert.equal(await css.text(),'html{color:red}');
+ assert.equal(css.headers.get('cache-control'),'public, max-age=31536000, immutable');
+ assert.equal((await get('/studio-next/','POST')).status,405);
+ assert.equal((await get('/_next/static/absent.js')).status,404);
+ assert.equal((await get('/api/projects')).status,404);
+ assert.equal((await get('/studio-next/','HEAD')).status,200);
+});
+test('El empaquetado es reproducible y conserva WebCreator y sus bibliotecas',()=>{
+ assert.match(build,/STUDIO_NEXT_BUNDLE_REQUIRED/);
+ assert.match(build,/server\/app\/index\.html/);
+ assert.match(build,/studio-next-route\.js/);
+ assert.match(build,/studio-next-navigation\.js/);
+ assert.match(build,/__WEBCREATOR_STUDIO_NEXT__/);
+ assert.match(dist,/WAYUP_NEXT_FILES/);
+ for(const mark of ['wcStudioThemeControl','wcFontSearch','wcButtonGallery','wcMotionMode','\/api\/projects','OPENROUTER_API_KEY'])assert.ok(dist.includes(mark),mark);
+});
+test('La navegación ofrece regreso a WebCreator y apertura de proyectos reales, sin escrituras no confirmadas',()=>{
+ const ui=source('public/studio-unified-appearance.js');
+ assert.match(ui,/wcStudioNextIntegrated/);
+ assert.match(ui,/studioProject/);
+ assert.match(ui,/WebCreatorStudio\?\.open\(projectId\)/);
+ assert.match(ui,/wcStudioNextHome/);
+ assert.match(ui,/wcThemeToggle/);
+ assert.match(nav,/Ver|webs reales|Mis webs reales/i);
+ assert.doesNotMatch(nav,/method:\s*'PATCH'|method:\s*'POST'|localStorage\.setItem/);
+});
