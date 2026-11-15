@@ -225,9 +225,29 @@ function bridge(){
   'use strict';
   let current=null;
   const nodes=()=>document.querySelectorAll('[data-wc-index]');
+  const outline=document.createElement('div'),chip=document.createElement('div');
+  outline.setAttribute('aria-hidden','true');
+  outline.style.cssText='position:fixed;display:none;z-index:2147483646;pointer-events:none;border:3px solid #2664ff;border-radius:6px;box-shadow:0 0 0 3px #2664ff35;box-sizing:border-box';
+  chip.style.cssText='position:fixed;display:none;pointer-events:none;z-index:2147483647;background:#244eee;color:white;border-radius:5px;padding:4px 8px;font:700 11px/1.3 system-ui,sans-serif;box-shadow:0 3px 10px #0005';
+  document.documentElement.append(outline,chip);
+  let label='Elemento';
+  const reposition=()=>{
+    if(!current||!current.isConnected){outline.style.display='none';chip.style.display='none';return}
+    const r=current.getBoundingClientRect();
+    if(r.bottom<0||r.top>innerHeight||r.right<0||r.left>innerWidth){outline.style.display='none';chip.style.display='none';return}
+    outline.style.display='block';outline.style.left=Math.max(0,r.left)+'px';outline.style.top=Math.max(0,r.top)+'px';
+    outline.style.width=Math.max(6,Math.min(innerWidth,r.right)-Math.max(0,r.left))+'px';
+    outline.style.height=Math.max(6,Math.min(innerHeight,r.bottom)-Math.max(0,r.top))+'px';
+    chip.textContent=label;chip.style.display='block';chip.style.left=Math.max(0,Math.min(innerWidth-170,r.left))+'px';
+    chip.style.top=Math.max(0,r.top-24)+'px';
+   };
+   addEventListener('scroll',reposition,true);
+   addEventListener('resize',reposition);
+
   const emit=(type,node,extra={})=>parent.postMessage({webCreatorCanvas:true,type,index:Number(node.getAttribute('data-wc-index')),...extra},'*');
   document.addEventListener('click',event=>{
-    const target=event.target.closest('[data-wc-index]');
+    const clickable=event.target.closest('a,button,[role="button"]');
+    const target=!event.altKey&&clickable?.hasAttribute('data-wc-index')?clickable:event.target.closest('[data-wc-index]');
     if(!target)return;event.preventDefault();event.stopImmediatePropagation();emit('select',target);
   },true);
   document.addEventListener('submit',event=>event.preventDefault(),true);
@@ -248,6 +268,7 @@ function bridge(){
       if(current)current.removeAttribute('data-wc-selected');
       current=nodes()[e.data.index]||null;
       if(current)current.setAttribute('data-wc-selected','');
+      label=String(e.data.label||'Elemento').slice(0,52);reposition();
     }
   });
 }
@@ -293,7 +314,7 @@ function render(){
   el('wcPreviewMode').classList.toggle('wc-primary',state.mode==='preview');
   status(state.mode==='edit'?'Edición: scripts de la web desactivados dentro del Canvas.':'Vista real aislada: se ejecutan los scripts de la página.');
 }
-function highlight(){try{el('wcFrame').contentWindow.postMessage({wcHighlight:true,index:state.selected},'*')}catch{}}
+function highlight(){try{el('wcFrame').contentWindow.postMessage({wcHighlight:true,index:state.selected,label:window.WebCreatorStudioTools?.label(currentNode())||currentNode()?.tagName||'Elemento'},'*')}catch{}}
 function selectIndex(index){
   const nodes=state.doc?.querySelectorAll(selector);
   if(!nodes||!Number.isInteger(index)||index<0||index>=nodes.length)return;
@@ -331,6 +352,7 @@ function selectIndex(index){
   el('wcSrc').value=img?node.getAttribute('src')||'':'';el('wcAlt').value=img?node.getAttribute('alt')||'':'';
   el('wcHref').value=link?node.getAttribute('href')||'':'';
   highlight();
+  window.WebCreatorStudioTools?.onSelect(node);
 }
 addEventListener('message',e=>{
   if(e.source!==el('wcFrame').contentWindow||e.data?.webCreatorCanvas!==true||state.mode!=='edit')return;
@@ -355,6 +377,7 @@ async function load(id){
     sync();render();window.WebCreatorMedia?.warmPreview(serialize(state.doc),()=>{if(state.id===data.id&&!state.code)render()});await list();
     if(ticket!==state.loadSeq)return;
     el('wcVersions').replaceChildren();el('wcTag').textContent='Sin selección';el('wcElementName').textContent='Selecciona algo en el lienzo.';
+    window.WebCreatorStudioTools?.onOpen();
     status('Abierto '+state.name+'. Puedes guardar nuevas versiones cuando quieras.');
   }catch(e){if(ticket===state.loadSeq)status('No se pudo abrir: '+e.message,true)}
 }
@@ -601,6 +624,11 @@ addEventListener('wc-studio-current-html',async event=>{
 addEventListener('beforeunload',event=>{if(state.dirty&&el('wcStudio').classList.contains('open')){event.preventDefault();event.returnValue=''}});
 window.WebCreatorStudio={
   open,refresh:list,
+  getDocument:()=>state.doc,
+  getSelection:()=>currentNode(),
+  getSelectedIndex:()=>state.selected,
+  change:(fn,message)=>{if(!check()||state.code)return false;update(fn,message);return true},
+  selectNode:(node)=>{const index=state.doc?[...state.doc.querySelectorAll(selector)].indexOf(node):-1;if(index<0)return false;selectIndex(index);return true},
   hasProject:()=>Boolean(state.doc&&state.id),
   applyAsset:(src,label='Imagen')=>{
     if(!check()||typeof src!=='string'||!/^\/api\/media\/file\/[a-f0-9-]{36}\.(?:jpg|png|webp)$/.test(src))

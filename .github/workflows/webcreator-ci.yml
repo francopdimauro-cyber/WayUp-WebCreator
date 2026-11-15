@@ -10,11 +10,13 @@ on:
       - feature/studio-pro-fonts
       - feature/studio-editor-premium-v2
       - feature/studio-font-library-complete
+      - feature/studio-smart-select-shapes-links
   pull_request:
     branches:
       - main
       - feature/biblioteca-canvas
       - feature/studio-editor-premium-v2
+      - feature/studio-font-library-complete
 permissions:
   contents: read
 jobs:

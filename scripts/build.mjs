@@ -18,6 +18,8 @@ const studioPro=read('public/studio-pro.css');
 const fontLibraryCss=read('public/studio-font-library.css');
 const windowsFontExporter=read('scripts/export-windows-fonts.ps1');
 const fontLibraryJs=read('public/studio-font-library.js').replace("'__WAYUP_WINDOWS_FONT_EXPORTER__'",JSON.stringify(windowsFontExporter));
+const smartToolsJs=read('public/studio-smart-tools.js');
+const smartToolsCss=read('public/studio-smart-tools.css');
 const mediaServer=read('src/studio-media.js');
 const studioServer=read('src/studio.js');
 const worker=read('src/worker.js');
@@ -25,8 +27,8 @@ if(!worker.includes('__WEBCREATOR_HTML__')||!worker.includes('/*__WEBCREATOR_STU
   throw new Error('Faltan puntos de inserción de Studio');
 if(!base.includes('id="downloadZip"')||!base.includes('id="preview"'))
   throw new Error('Faltan controles del constructor original');
-const html=base.replace('__WAYUP_OFFICIAL_LOGO__','data:image/png;base64,'+originalLogoBase64).replace('</head>','<style>\n'+css+'\n'+theme+'\n'+compact+'\n'+precisionDark+'\n'+vibrant+'\n'+urbanType+'\n'+officialCss+'\n'+mediaCss+'\n'+studioPro+'\n'+fontLibraryCss+'\n</style></head>')
-  .replace('</body>','<script>\n'+studioClient+'\n</script><script>\n'+fontLibraryJs+'\n</script><script>\n'+commandPalette+'\n</script><script>\n'+themeToggle+'\n</script><script>\n'+mediaClient+'\n</script></body>');
+const html=base.replace('__WAYUP_OFFICIAL_LOGO__','data:image/png;base64,'+originalLogoBase64).replace('</head>','<style>\n'+css+'\n'+theme+'\n'+compact+'\n'+precisionDark+'\n'+vibrant+'\n'+urbanType+'\n'+officialCss+'\n'+mediaCss+'\n'+studioPro+'\n'+fontLibraryCss+'\n'+smartToolsCss+'\n</style></head>')
+  .replace('</body>','<script>\n'+studioClient+'\n</script><script>\n'+fontLibraryJs+'\n</script><script>\n'+smartToolsJs+'\n</script><script>\n'+commandPalette+'\n</script><script>\n'+themeToggle+'\n</script><script>\n'+mediaClient+'\n</script></body>');
 const built=worker.replace('/*__WEBCREATOR_STUDIO_SERVER__*/',studioServer+'\n'+mediaServer)
   .replace('__WEBCREATOR_HTML__',JSON.stringify(html));
 mkdirSync(new URL('../dist/',import.meta.url),{recursive:true});

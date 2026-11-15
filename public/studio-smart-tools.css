@@ -1,0 +1,40 @@
+/* WAYUP Studio: intelligent selection, shapes and external actions.
+   Styles are isolated to the editor; added shapes use inline styles in exported HTML. */
+#wcStudio .wc-selected-info{border:1.5px solid var(--s-accent)!important;background:var(--s-accent-soft)!important;padding:13px!important;box-shadow:0 0 0 3px rgba(49,99,244,.05)!important}
+#wcStudio .wc-selected-info .wc-overline{display:flex;align-items:center;justify-content:space-between;font-weight:750}
+#wcStudio .wc-selected-heading{display:flex;align-items:center;gap:9px;margin:9px 0 6px;min-width:0}
+#wcStudio .wc-selected-icon{display:grid;place-items:center;flex-shrink:0;width:34px;height:34px;border:1px solid var(--s-border);border-radius:9px;background:var(--s-panel);color:var(--s-accent);font-size:17px}
+#wcStudio .wc-selected-heading>div{display:flex;align-items:flex-start;flex-direction:column;gap:4px;min-width:0}
+#wcStudio #wcElementName{display:block;color:var(--s-fg);font-weight:800;font-size:13px;line-height:1.25;overflow-wrap:anywhere}
+#wcStudio .wc-selected-info #wcTag{font-size:9px!important;padding:3px 7px!important}
+#wcStudio .wc-selected-info #wcElementDetail{font-size:11px;color:var(--s-fg-muted);overflow-wrap:anywhere;line-height:1.5;margin:5px 0!important}
+#wcStudio #wcElementPath{font:600 10px/1.5 "Space Grotesk",sans-serif;color:var(--s-fg-muted);margin:7px 0 0;overflow-wrap:anywhere}
+#wcStudio .wc-selected-actions{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+#wcStudio .wc-selected-actions button{border:1px solid var(--s-border)!important;background:var(--s-panel)!important;color:var(--s-fg)!important;border-radius:7px;padding:7px 9px;font-size:10px;font-weight:750;flex:1}
+#wcStudio .wc-selected-actions button:hover{border-color:var(--s-accent)!important;color:var(--s-accent)!important}
+#wcStudio .wc-selected-actions button[hidden]{display:none!important}
+#wcStudio .wc-insert-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#wcStudio .wc-insert-grid button{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:53px;padding:8px 9px!important;text-align:left;background:var(--s-panel)!important;color:var(--s-fg)!important;border:1px solid var(--s-border)!important;border-radius:8px;font-size:11px;font-weight:750}
+#wcStudio .wc-insert-grid button small{font-size:9px;font-weight:550;line-height:1.4;margin-top:3px;color:var(--s-fg-muted)}
+#wcStudio .wc-insert-grid button:hover{border-color:var(--s-accent)!important;background:var(--s-accent-soft)!important}
+#wcStudio .wc-insert-intro,#wcStudio .wc-resource-tip{font-size:10px;line-height:1.55;color:var(--s-fg-muted);margin:0}
+#wcStudio .wc-resource-grid{display:flex;flex-direction:column;gap:10px}
+#wcStudio .wc-inline-check{display:flex!important;flex-direction:row!important;align-items:center!important;gap:7px!important}
+#wcStudio .wc-inline-check input{min-height:0!important;height:15px!important;width:15px!important;accent-color:var(--s-accent)}
+#wcStudio .wc-property-body #wcShapeControls{display:flex;flex-direction:column;gap:10px}
+#wcStudio .wc-field-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#wcStudio .wc-field-three input{min-width:0}
+#wcStudio .wc-property-group .wc-mini-heading{font-size:11px;font-weight:750;color:var(--s-fg)}
+#wcStudio .wc-selected-info [aria-live]{min-height:0}
+@media(max-width:1000px){#wcStudio .wc-insert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){#wcStudio .wc-selected-heading{gap:7px}#wcStudio .wc-selected-info{padding:11px!important}}
+
+#wcStudio #wcAddElementTop{
+  display:inline-flex!important;align-items:center;justify-content:center;
+  background:var(--s-accent-soft)!important;color:var(--s-accent)!important;
+  border:1px solid var(--s-accent)!important;border-radius:8px!important;
+  padding:8px 10px!important;min-height:35px;font-size:11px!important;font-weight:800!important;white-space:nowrap;
+}
+#wcStudio #wcAddElementTop:hover{background:var(--s-accent)!important;color:var(--s-accent-ink)!important}
+#wcStudio #wcSmartLinkPanel:not(.wc-hidden){display:flex;flex-direction:column;gap:10px}
+#wcStudio .wc-insert-grid button:focus-visible,#wcStudio .wc-selected-actions button:focus-visible{outline:2px solid var(--s-accent)!important;outline-offset:2px}
