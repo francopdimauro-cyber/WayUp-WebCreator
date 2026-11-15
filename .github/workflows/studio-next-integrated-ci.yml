@@ -4,10 +4,12 @@ on:
     branches:
       - feature/studio-next-unified-worker
       - fix/studio-single-entry-navigation
+      - feature/studio-next-full-font-library
   pull_request:
     branches:
       - feature/studio-integrated-premium-theme-fonts
       - feature/studio-next-unified-worker
+      - fix/studio-single-entry-navigation
   workflow_dispatch:
 
 permissions:
