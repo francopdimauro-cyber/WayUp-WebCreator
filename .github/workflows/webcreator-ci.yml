@@ -12,6 +12,7 @@ on:
       - feature/studio-font-library-complete
       - feature/studio-smart-select-shapes-links
       - feature/studio-pro-button-library
+      - feature/studio-canvas-direct-manipulation
   pull_request:
     branches:
       - main
@@ -19,6 +20,7 @@ on:
       - feature/studio-editor-premium-v2
       - feature/studio-font-library-complete
       - feature/studio-smart-select-shapes-links
+      - feature/studio-pro-button-library
 permissions:
   contents: read
 jobs:

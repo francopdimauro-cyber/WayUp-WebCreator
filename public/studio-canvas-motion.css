@@ -1,0 +1,40 @@
+/* WAYUP Studio Canvas: move, reorder and precision controls. */
+#wcStudio #wcCanvasMotionGroup{
+ border-color:var(--s-accent,#3063f0)!important;
+ background:var(--s-panel,#fff)!important;
+}
+#wcStudio #wcCanvasMotionGroup>summary{font-weight:850!important}
+#wcStudio .wc-motion-body{display:flex!important;flex-direction:column;gap:11px!important}
+#wcStudio .wc-motion-intro,#wcStudio .wc-motion-notice{
+ font-size:10.5px;line-height:1.55;margin:0;color:var(--s-fg-muted,#667289)
+}
+#wcStudio .wc-motion-notice{
+ border-left:2px solid var(--s-accent,#3160ef);padding:9px 10px;
+ background:var(--s-accent-soft,#f1f5ff);border-radius:3px 8px 8px 3px
+}
+#wcStudio .wc-motion-body select{width:100%;min-width:0}
+#wcStudio .wc-motion-body .wc-inline-check{display:flex;align-items:center;gap:8px;font-size:11px}
+#wcStudio .wc-motion-body .wc-inline-check input{
+ width:15px!important;height:15px!important;min-height:0!important;accent-color:var(--s-accent,#3160ef)
+}
+#wcStudio .wc-motion-body .wc-field-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#wcStudio .wc-motion-body .wc-field-two input{max-width:100%;min-width:0}
+#wcStudio .wc-motion-actions{display:grid;grid-template-columns:1.35fr 1fr;gap:7px}
+#wcStudio .wc-motion-actions button,#wcStudio .wc-motion-layers button{
+ display:flex;align-items:center;justify-content:center;min-width:0;
+ padding:9px 10px!important;min-height:34px!important;
+ border-radius:8px!important;border:1px solid var(--s-border,#d7dfeb)!important;
+ background:var(--s-panel,#fff)!important;color:var(--s-fg,#1c2636)!important;
+ font:750 10.5px/1.3 system-ui,sans-serif!important;
+}
+#wcStudio #wcMotionApply{background:var(--s-accent,#3160ef)!important;border-color:var(--s-accent,#3160ef)!important;color:#fff!important}
+#wcStudio .wc-motion-actions button:disabled,#wcStudio .wc-motion-layers button:disabled{opacity:.38!important;cursor:not-allowed!important}
+#wcStudio .wc-motion-layers{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+ border-top:1px solid var(--s-border,#d7dfeb);padding-top:11px
+}
+#wcStudio .wc-motion-layers>span{font:800 10px/1.3 system-ui,sans-serif;color:var(--s-fg,#1c2636)}
+#wcStudio .wc-motion-layers>div{display:flex;gap:6px}
+#wcStudio .wc-motion-actions button:focus-visible,#wcStudio .wc-motion-layers button:focus-visible{
+ outline:2px solid var(--s-accent,#3160ef)!important;outline-offset:2px
+}
