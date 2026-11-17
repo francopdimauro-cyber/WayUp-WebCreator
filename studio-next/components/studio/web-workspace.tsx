@@ -10,6 +10,7 @@ import { AgentSetup, type LinkedAgent } from './agent-setup';
 import { SectionExplorer, type SectionAction } from './section-explorer';
 import { BrandLockup } from './brand-lockup';
 import { PropertyPanel, type ElementInfo } from './property-panel';
+import { ButtonStyles } from './button-styles';
 import { SymbolLibrary } from './symbol-library';
 import { CssCodeEditor } from './css-code-editor';
 import type { SymbolEntry } from '@/lib/symbols';
@@ -21,7 +22,7 @@ import { ParkedItem, type Parked } from './parked-item';
 import { InsertPanel, BLOCK_MIME, SECTION_MIME } from './insert-panel';
 import { computeDrop, showIndicator, hideIndicator, drawHandles, clearHandles } from './canvas-interactions';
 import { blockById, isSectionBlock, instantiateBlock } from '@/lib/canvas-blocks';
-import { EDITABLE_STYLE_PROPS, copyElement, duplicateElement, isTextEditable, moveElement, parentIndex, pasteElement, removeElement, setAttributes, setFont, setInlineContent, setStyles, toggleHidden, groupElements, ungroupElement, insertSnippet, moveElementTo, canContain, writeSeo, replaceInlineSymbol, resolveSymbolTarget, symbolFitTransform, type EditResult } from '@/lib/element-editing';
+import { EDITABLE_STYLE_PROPS, copyElement, duplicateElement, isTextEditable, moveElement, parentIndex, pasteElement, removeElement, setAttributes, setFont, setInlineContent, setStyles, toggleHidden, groupElements, ungroupElement, insertSnippet, moveElementTo, canContain, writeSeo, replaceInlineSymbol, resolveSymbolTarget, resolveButtonTarget, symbolFitTransform, type EditResult } from '@/lib/element-editing';
 import { validateCssSource, validateCssStructure } from '@/lib/css-validation';
 import { ThemeToggle } from './theme-toggle';
 import { addSection, duplicateSection, ensureSectionKeys, listSections, moveSection, removeSection, renameSection, sectionForIndex } from '@/lib/html-sections';
@@ -251,7 +252,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   const [selectedValues,setSelectedValues]=useState({text:'',color:'',background:'',fontSize:'',href:'',alt:'',width:'',height:'',padding:'',margin:'',radius:'',fontWeight:'',fontFamily:'',textAlign:'',posX:'0',posY:'0'});
   const [explorerOpen,setExplorerOpen]=useState(false);
   const [inspectorOpen,setInspectorOpen]=useState(false);
-  const [inspectorTab,setInspectorTab]=useState<'properties'|'image'|'symbol'>('properties');
+  const [inspectorTab,setInspectorTab]=useState<'properties'|'image'|'symbol'|'button'>('properties');
   const [symbolQuery,setSymbolQuery]=useState('');
   const pendingSectionRef=useRef<string|null>(null);
   const pendingIndexRef=useRef<number|null>(null);
@@ -353,6 +354,12 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   const preview=useMemo(()=>site?safePreview(site):null,[site]);
   const imageTarget=useMemo(()=>site&&selected!==null?resolveImageTarget(site,selected):null,[site,selected]);
   const symbolTarget=useMemo(()=>site&&selected!==null?resolveSymbolTarget(site.html,selected):null,[site,selected]);
+  const buttonTarget=useMemo(()=>site&&selected!==null?resolveButtonTarget(site.html,selected):null,[site,selected]);
+  const selectedImageNode=selectedRef.current;
+  const canChangeImage=Boolean(imageTarget&&(imageTarget.kind==='item'||imageTarget.kind==='section'||
+    selectedImageNode?.tagName==='IMG'||(['PICTURE','FIGURE'].includes(selectedImageNode?.tagName||'')&&Boolean(selectedImageNode?.querySelector('img')))));
+  const inspectorTabCount=1+(canChangeImage?1:0)+(symbolTarget?1:0);
+  const inspectorGridClass=inspectorTabCount===3?'grid-cols-3':inspectorTabCount===2?'grid-cols-2':'grid-cols-1';
   const [imagePreviewUrl,setImagePreviewUrl]=useState('');
   useEffect(()=>{
     const bytes=imageTarget?.assetKey&&site?site.assets[imageTarget.assetKey]:undefined;
@@ -638,14 +645,20 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
     const currentSite=siteRef.current;
     const iconTarget=currentSite?resolveSymbolTarget(currentSite.html,index):null;
     const photoTarget=currentSite?resolveImageTarget(currentSite,index):null;
+    const buttonTarget=currentSite?resolveButtonTarget(currentSite.html,index):null;
+    const imageNode=['IMG','PICTURE','FIGURE'].includes(element.tagName)&&
+      (element.tagName==='IMG'||Boolean(element.querySelector('img')));
     if(iconTarget){
       setInspectorTab('symbol');
       setInspectorOpen(true);
       setSymbolQuery('');
-    }else if(photoTarget&&(photoTarget.kind==='item'||photoTarget.kind==='section')){
+    }else if(photoTarget&&(photoTarget.kind==='item'||photoTarget.kind==='section'||imageNode)){
       setInspectorTab('image');
       setInspectorOpen(true);
-    }else setInspectorTab('properties');
+    }else{
+      setInspectorTab('properties');
+      if(buttonTarget)setInspectorOpen(true);
+    }
     if(scroll)element.scrollIntoView({block:'center',behavior:'smooth'});
     if(toolRef.current==='select')drawResize(element);
   }
@@ -1400,55 +1413,66 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
           </>}
         </div>
         <aside aria-label="Inspector de elementos" className={'scroll-subtle w-[278px] shrink-0 overflow-y-auto border-l border-stroke bg-panel p-4 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-[70] max-lg:w-[min(320px,88vw)] max-lg:shadow-2xl '+(inspectorOpen?'':'max-lg:hidden')}>
-          <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-[12px] font-semibold">{inspectorTab==='image'?<ImagePlus size={14} className="text-brand"/>:inspectorTab==='symbol'?<Shapes size={14} className="text-brand"/>:<SlidersHorizontal size={14} className="text-brand"/>} {inspectorTab==='image'?'Imagen':inspectorTab==='symbol'?'Símbolo':'Propiedades'}</h2>
+          <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-[12px] font-semibold">{inspectorTab==='image'?<ImagePlus size={14} className="text-brand"/>:inspectorTab==='symbol'?<Shapes size={14} className="text-brand"/>:inspectorTab==='button'?<Paintbrush size={14} className="text-brand"/>:<SlidersHorizontal size={14} className="text-brand"/>} {inspectorTab==='image'?'Imagen':inspectorTab==='symbol'?'Símbolo':inspectorTab==='button'?'Cambiar botón':'Propiedades'}</h2>
             <button type="button" onClick={()=>setInspectorOpen(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-mist hover:bg-raised lg:hidden" aria-label="Cerrar inspector"><X size={15}/></button></div>
-          <p className="mb-4 text-[11px] leading-5 text-mist">{inspectorTab==='image'?'Asocia una fotografía al plato o sección.':inspectorTab==='symbol'?'Sustituye el icono seleccionado sin alterar su caja ni su estilo.':'Selecciona un elemento en la web o en el Explorador. Cada cambio se puede deshacer.'}</p>
+          <p className="mb-4 text-[11px] leading-5 text-mist">{inspectorTab==='image'?'Sustituye la fotografía del elemento seleccionado.':inspectorTab==='symbol'?'Sustituye el icono seleccionado conservando su tamaño visual.':inspectorTab==='button'?'Elige un nuevo estilo. Se conservan el texto, el enlace y el comportamiento del botón.':'Selecciona un elemento en la web o en el Explorador. Cada cambio se puede deshacer.'}</p>
           {selected===null?<div className="rounded-lg border border-dashed border-stroke p-4 text-[11px] text-faint">Nada seleccionado.</div>:<>
             <div className="mb-2 rounded-lg border border-stroke bg-elevated px-3 py-2 font-mono text-[10px] text-mist">{activeLayer?.tag||'Nodo'} · #{selected}{activeSection?' · '+activeSection.name:''}</div>
-            <div className={'mb-3 grid gap-1 rounded-lg border border-stroke bg-elevated p-1 '+(symbolTarget?'grid-cols-3':'grid-cols-2')} role="tablist" aria-label="Panel del elemento">
-              <button type="button" role="tab" aria-selected={inspectorTab==='properties'} onClick={()=>setInspectorTab('properties')}
-                className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='properties'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Propiedades</button>
-              <button type="button" role="tab" aria-selected={inspectorTab==='image'} onClick={()=>setInspectorTab('image')}
-                className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='image'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Imagen</button>
-              {symbolTarget&&<button type="button" role="tab" aria-selected={inspectorTab==='symbol'} onClick={()=>setInspectorTab('symbol')}
-                className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='symbol'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Símbolo</button>}
-            </div>
-            {inspectorTab==='symbol'&&symbolTarget?<div className="flex h-[500px] min-h-[360px] flex-col gap-2">
-              <div className="rounded-lg border border-stroke bg-elevated px-3 py-2">
-                <p className="text-[10px] font-semibold text-ink">Icono actual</p>
-                <p className="mt-1 truncate text-[11px] text-mist">{symbolTarget.name}</p>
-                <p className="mt-1 text-[10px] text-faint">Caja original: {symbolTarget.width||'CSS'} × {symbolTarget.height||'CSS'}</p>
-              </div>
-              <label className="relative block shrink-0"><Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"/>
-                <input value={symbolQuery} onChange={e=>setSymbolQuery(e.target.value)} placeholder="Buscar símbolo: casa, fuego, mapa…" aria-label="Buscar símbolo para sustituir"
-                  className="w-full rounded-md border border-stroke bg-elevated py-1.5 pl-8 pr-2 text-[11px] text-ink outline-none focus:border-brand"/></label>
-              <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-stroke">
-                <SymbolLibrary query={symbolQuery} mode="replace" onReplace={replaceSelectedSymbol} onInsert={()=>{}} onDrag={()=>{}}/>
-              </div>
-            </div>:inspectorTab==='image'?<div className="space-y-3">
+            {buttonTarget&&inspectorTab!=='button'&&<button type="button" onClick={()=>setInspectorTab('button')} className={primary+' mb-3 w-full justify-center uppercase tracking-wide'}><Paintbrush size={14}/> CAMBIAR BOTÓN</button>}
+            {inspectorTab==='button'&&buttonTarget?<div className="space-y-3">
+              <button type="button" onClick={()=>setInspectorTab('properties')} className="text-[11px] font-medium text-brand hover:underline">← Volver a propiedades</button>
               <div className="rounded-lg border border-stroke bg-elevated p-3">
-                <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold"><ImagePlus size={14} className="text-brand"/>{imageTarget?.kind==='item'?'Fotografía del plato':imageTarget?.kind==='section'?'Fotografía de la sección':'Fotografía del elemento'}</div>
-                <p className="text-[11px] leading-5 text-mist">{imageTarget?.label||'Elemento seleccionado'}</p>
+                <p className="text-[10px] font-semibold text-ink">Botón seleccionado</p>
+                <p className="mt-1 text-[11px] text-mist">{buttonTarget.label}</p>
+                <p className="mt-1 text-[10px] text-faint">El contenido, destino y función del botón no se modifican.</p>
               </div>
-              {imagePreviewUrl?<img src={imagePreviewUrl} alt={imageTarget?.imageAlt||'Fotografía asociada'} className="max-h-48 w-full rounded-lg border border-stroke object-cover"/>:
-                imageTarget?.hasImage?<div className="rounded-lg border border-dashed border-stroke p-3 text-[11px] leading-5 text-mist">Este elemento ya contiene una imagen enlazada. Puedes sustituirla por una fotografía guardada dentro del proyecto.</div>:
-                <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-stroke p-4 text-center">
-                  <ImagePlus size={24} className="text-faint"/><span className="text-[11px] text-mist">Todavía no hay ninguna fotografía asociada.</span>
-                </div>}
-              <label className={primary+' w-full cursor-pointer'}>
-                <ImagePlus size={14}/>{imageTarget?.hasImage?'Sustituir fotografía':'Subir fotografía'}
-                <input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Subir fotografía del elemento"
-                  onChange={e=>{const file=e.currentTarget.files?.[0];if(file)void changeImage(file);e.currentTarget.value='';}}/>
-              </label>
-              {imageTarget?.managedImage&&<button type="button" className={btn+' w-full justify-center text-red-400'} onClick={removeImage}><Trash2 size={13}/> Eliminar fotografía</button>}
-              <p className="text-[10px] leading-5 text-faint">PNG, JPG, GIF o WebP · máximo 5 MB. La foto se inserta en el plato o sección seleccionada, se incluye en el ZIP y puedes deshacer el cambio.</p>
-            </div>:inspectorTab!=='symbol'&&elementInfo&&elementInfo.index===selected?<PropertyPanel info={elementInfo}
-              onStyles={styles=>tryEdit(()=>setStyles(site.html,elementInfo.index,styles),'Estilo aplicado al elemento.')}
-              onFont={family=>tryEdit(()=>setFont(site.html,elementInfo.index,family),'Tipografía aplicada: '+family.split(',')[0].replace(/["']/g,'')+'.')}
-              onPreview={styles=>{const el=selectedRef.current;if(!el)return;for(const [prop,value] of Object.entries(styles))el.style.setProperty(prop,value);}}
-              onAttrs={attrs=>tryEdit(()=>setAttributes(site.html,elementInfo.index,attrs),'Atributos actualizados.')}
-              onText={text=>tryEdit(()=>setInlineContent(site.html,elementInfo.index,escapeText(text)),'Texto actualizado.')}
-              onEditText={()=>startTextEdit(elementInfo.index)}/>:<div className="rounded-lg border border-dashed border-stroke p-3 text-[11px] text-faint">No hay propiedades disponibles para esta selección.</div>}
+              <ButtonStyles onStyles={styles=>tryEdit(()=>setStyles(site.html,buttonTarget.index,styles),'Estilo del botón actualizado. Se han conservado su texto y destino.')}/>
+            </div>:<>
+              <div className={'mb-3 grid gap-1 rounded-lg border border-stroke bg-elevated p-1 '+inspectorGridClass} role="tablist" aria-label="Panel del elemento">
+                <button type="button" role="tab" aria-selected={inspectorTab==='properties'} onClick={()=>setInspectorTab('properties')}
+                  className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='properties'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Propiedades</button>
+                {canChangeImage&&<button type="button" role="tab" aria-selected={inspectorTab==='image'} onClick={()=>setInspectorTab('image')}
+                  className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='image'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Imagen</button>}
+                {symbolTarget&&<button type="button" role="tab" aria-selected={inspectorTab==='symbol'} onClick={()=>setInspectorTab('symbol')}
+                  className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='symbol'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Símbolo</button>}
+              </div>
+              {inspectorTab==='symbol'&&symbolTarget?<div className="flex h-[500px] min-h-[360px] flex-col gap-2">
+                <div className="rounded-lg border border-stroke bg-elevated px-3 py-2">
+                  <p className="text-[10px] font-semibold text-ink">Icono actual</p>
+                  <p className="mt-1 truncate text-[11px] text-mist">{symbolTarget.name}</p>
+                  <p className="mt-1 text-[10px] text-faint">Caja original: {symbolTarget.width||'CSS'} × {symbolTarget.height||'CSS'}</p>
+                </div>
+                <label className="relative block shrink-0"><Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"/>
+                  <input value={symbolQuery} onChange={e=>setSymbolQuery(e.target.value)} placeholder="Buscar símbolo: casa, fuego, mapa…" aria-label="Buscar símbolo para sustituir"
+                    className="w-full rounded-md border border-stroke bg-elevated py-1.5 pl-8 pr-2 text-[11px] text-ink outline-none focus:border-brand"/></label>
+                <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-stroke">
+                  <SymbolLibrary query={symbolQuery} mode="replace" onReplace={replaceSelectedSymbol} onInsert={()=>{}} onDrag={()=>{}}/>
+                </div>
+              </div>:inspectorTab==='image'&&canChangeImage?<div className="space-y-3">
+                <div className="rounded-lg border border-stroke bg-elevated p-3">
+                  <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold"><ImagePlus size={14} className="text-brand"/>{imageTarget?.kind==='item'?'Fotografía del plato':imageTarget?.kind==='section'?'Fotografía de la sección':imageTarget?.tag==='IMG'?'Imagen seleccionada':'Fotografía del elemento'}</div>
+                  <p className="text-[11px] leading-5 text-mist">{imageTarget?.label||'Elemento seleccionado'}</p>
+                </div>
+                {imagePreviewUrl?<img src={imagePreviewUrl} alt={imageTarget?.imageAlt||'Fotografía asociada'} className="max-h-48 w-full rounded-lg border border-stroke object-cover"/>:
+                  imageTarget?.hasImage?<div className="rounded-lg border border-dashed border-stroke p-3 text-[11px] leading-5 text-mist">La imagen actual puede sustituirse por un archivo local que se guardará con el proyecto.</div>:
+                  <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-stroke p-4 text-center">
+                    <ImagePlus size={24} className="text-faint"/><span className="text-[11px] text-mist">Todavía no hay ninguna fotografía asociada.</span>
+                  </div>}
+                <label className={primary+' w-full cursor-pointer'}>
+                  <ImagePlus size={14}/>{imageTarget?.hasImage?'CAMBIAR IMAGEN':'AÑADIR IMAGEN'}
+                  <input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Cambiar imagen del elemento"
+                    onChange={e=>{const file=e.currentTarget.files?.[0];if(file)void changeImage(file);e.currentTarget.value='';}}/>
+                </label>
+                {imageTarget?.managedImage&&<button type="button" className={btn+' w-full justify-center text-red-400'} onClick={removeImage}><Trash2 size={13}/> Eliminar fotografía</button>}
+                <p className="text-[10px] leading-5 text-faint">PNG, JPG, GIF o WebP · máximo 5 MB. Se conserva el encuadre y estilo de la imagen existente; el archivo se incluye en el ZIP y puedes deshacer el cambio.</p>
+              </div>:inspectorTab==='properties'&&elementInfo&&elementInfo.index===selected?<PropertyPanel info={elementInfo}
+                onStyles={styles=>tryEdit(()=>setStyles(site.html,elementInfo.index,styles),'Estilo aplicado al elemento.')}
+                onFont={family=>tryEdit(()=>setFont(site.html,elementInfo.index,family),'Tipografía aplicada: '+family.split(',')[0].replace(/["']/g,'')+'.')}
+                onPreview={styles=>{const el=selectedRef.current;if(!el)return;for(const [prop,value] of Object.entries(styles))el.style.setProperty(prop,value);}}
+                onAttrs={attrs=>tryEdit(()=>setAttributes(site.html,elementInfo.index,attrs),'Atributos actualizados.')}
+                onText={text=>tryEdit(()=>setInlineContent(site.html,elementInfo.index,escapeText(text)),'Texto actualizado.')}
+                onEditText={()=>startTextEdit(elementInfo.index)}/>:<div className="rounded-lg border border-dashed border-stroke p-3 text-[11px] text-faint">No hay propiedades disponibles para esta selección.</div>}
+            </>}
           </>}
           <div className="mt-7 border-t border-stroke pt-4 text-[10px] leading-5 text-faint">Lienzo de edición protegido: aquí el JavaScript no se ejecuta. Pulsa «En vivo» para ver la web funcionando con sus scripts; todo se conserva al exportar.</div>
         </aside>
