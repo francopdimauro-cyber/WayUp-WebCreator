@@ -2,7 +2,7 @@
 import React,{useRef,useState,type ReactNode} from 'react';
 import {Braces,ChevronDown,Command,Lightbulb,AlertCircle,CheckCircle2} from 'lucide-react';
 
-type Props={value:string;onChange(value:string):void;error:string|null};
+type Props={value:string;onChange(value:string):void;error:string|null;label?:string};
 const PROPERTIES=[
   'display','position','width','height','min-width','max-width','min-height','max-height',
   'margin','padding','gap','color','background','background-color','background-image',
@@ -32,7 +32,7 @@ function highlightLine(line:string):ReactNode[]{
   if(last<line.length)out.push(<React.Fragment key={'t'+index}>{line.slice(last)}</React.Fragment>);
   return out;
 }
-export function CssCodeEditor({value,onChange,error}:Props){
+export function CssCodeEditor({value,onChange,error,label='CSS personalizado'}:Props){
   const editor=useRef<HTMLTextAreaElement>(null),highlight=useRef<HTMLPreElement>(null),gutter=useRef<HTMLDivElement>(null);
   const [completionOpen,setCompletionOpen]=useState(false);
   const [completionFilter,setCompletionFilter]=useState('');
