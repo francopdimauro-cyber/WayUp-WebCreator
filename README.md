@@ -11,10 +11,18 @@ La línea activa de trabajo del editor es:
 - **Rama de trabajo:** `feature/editor-image-panel-menu-items-20261117`.
 - **Rama base:** `feature/studio-final-motor-estructura-medios-20261115`.
 - **Pull Request:** [#11 · Editor CSS y acciones contextuales](https://github.com/francopdimauro-cyber/WayUp-WebCreator/pull/11). Sigue en borrador y no está fusionada.
-- **CI:** [tests, build y TypeScript superados](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44112805790).
+- **CI más reciente:** [tests, build y TypeScript superados](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44113518541) (commit `8949037903b29e8a3d17534fe225725a1b0c9882`).
 - **Producción:** esta rama no se ha desplegado. No modificar `main`, el Worker de producción ni el repositorio independiente `Refugio-de-Chilla`.
 
 La documentación operativa para continuar el editor está en **[`studio-next/README.md`](studio-next/README.md)**. Ese documento es el punto de traspaso para Claude: recoge arquitectura, funciones implementadas, pruebas, límites conocidos y reglas para continuar el trabajo.
+
+### Últimas capacidades documentadas del editor
+- Acciones contextuales en el Inspector: **CAMBIAR BOTÓN** al seleccionar un botón o CTA reconocido; **CAMBIAR IMAGEN / AÑADIR IMAGEN** al seleccionar una imagen, plato o sección compatible.
+- Galería de estilos de botón que conserva texto, enlace y comportamiento.
+- Sustitución de fotografías con recursos locales, exportación ZIP y deshacer/rehacer.
+- Sustitución de símbolos SVG desde la biblioteca Lucide, con ajuste al tamaño visual del icono original.
+- Editor CSS dedicado para estilos personalizados y para hojas CSS originales importadas.
+- Detalle de detección, límites, archivos, pruebas y pasos de continuación: ver el README técnico de Studio.
 
 ## Qué incluye el Worker de WebCreator
 
