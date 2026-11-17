@@ -10,7 +10,8 @@ La línea activa de trabajo del editor es:
 - **Aplicación:** `studio-next/` (Next.js 16, React 19 y TypeScript).
 - **Rama de trabajo:** `feature/editor-image-panel-menu-items-20261117`.
 - **Rama base:** `feature/studio-final-motor-estructura-medios-20261115`.
-- **Pull Request:** [#11 · Editor CSS y sustitución inteligente de símbolos](https://github.com/francopdimauro-cyber/WayUp-WebCreator/pull/11). Sigue en borrador y no está fusionada.
+- **Pull Request:** [#11 · Editor CSS y acciones contextuales](https://github.com/francopdimauro-cyber/WayUp-WebCreator/pull/11). Sigue en borrador y no está fusionada.
+- **CI:** [tests, build y TypeScript superados](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44112805790).
 - **Producción:** esta rama no se ha desplegado. No modificar `main`, el Worker de producción ni el repositorio independiente `Refugio-de-Chilla`.
 
 La documentación operativa para continuar el editor está en **[`studio-next/README.md`](studio-next/README.md)**. Ese documento es el punto de traspaso para Claude: recoge arquitectura, funciones implementadas, pruebas, límites conocidos y reglas para continuar el trabajo.
