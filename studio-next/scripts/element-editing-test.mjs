@@ -249,7 +249,7 @@ assert.equal(actualPhoto.getAttribute('alt'),originalPhotoAlt,'Conserva el texto
 assert.equal(actualPhoto.getAttribute('width'),'1440','Conserva dimensiones originales');
 assert.equal(actualPhoto.getAttribute('height'),'960','Conserva dimensiones originales');
 assert.equal(replacedRefugioDoc.querySelectorAll('img[data-wayup-photo]').length,1);
-const pictureHtml=\`<!DOCTYPE html><html><head></head><body><picture><source type="image/webp" srcset="old.webp"><img src="old.jpg" srcset="old-2x.jpg 2x" sizes="100vw" alt="Foto original" width="800" height="600"></picture></body></html>\`;
+const pictureHtml=`<!DOCTYPE html><html><head></head><body><picture><source type="image/webp" srcset="old.webp"><img src="old.jpg" srcset="old-2x.jpg 2x" sizes="100vw" alt="Foto original" width="800" height="600"></picture></body></html>`;
 const pictureSite=F.siteFromHtml(pictureHtml,'Picture');
 const pictureIndex=idx(pictureHtml,'picture img');
 const pictureReplaced=F.attachLocalImage(pictureSite,pictureIndex,testPng);
