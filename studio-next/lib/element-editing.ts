@@ -5,6 +5,7 @@
  * nada de scripts, manejadores on*, url() externas ni expresiones CSS peligrosas.
  */
 import {editableHtmlNodes,safeSiteLink} from './web-project-files';
+import type {SymbolEntry} from './symbols';
 
 export type EditResult={html:string;index:number|null};
 
@@ -92,6 +93,83 @@ export function setStyles(html:string,index:number,styles:Record<string,string>)
   // Los valores ya están validados (sin «;», llaves ni comentarios), así que la reconstrucción es segura.
   const text=[...inline].map(([p,v])=>p+': '+v+' !important').join('; ');
   if(text)node.setAttribute('style',text);else node.removeAttribute('style');
+  return {html:serialize(doc),index};
+}
+
+/* ── Sustitución de símbolos SVG ─────────────────────────────────────────── */
+export type SymbolTargetInfo={index:number;name:string;tag:string;width:string;height:string;strokeWidth:string};
+function selectedInlineSvg(node:HTMLElement):SVGSVGElement|null{
+  if(node.tagName.toUpperCase()==='SVG')return node as unknown as SVGSVGElement;
+  const svgs=Array.from(node.querySelectorAll('svg')) as unknown as SVGSVGElement[];
+  return svgs.length===1?svgs[0]:null;
+}
+function iconDimension(node:HTMLElement,svg:SVGSVGElement,axis:'width'|'height'):string{
+  const values=[svg.getAttribute(axis),svg.style?.getPropertyValue(axis),svg.parentElement?.style?.getPropertyValue(axis),node.style?.getPropertyValue(axis)];
+  return values.find(value=>Boolean(value)&&!/%/.test(value||''))||'';
+}
+/** Detecta iconos SVG pequeños sin confundir contenedores que agrupan varios dibujos. */
+export function resolveSymbolTarget(html:string,index:number):SymbolTargetInfo|null{
+  const doc=parse(html);const node=nodeAt(doc,index);const svg=selectedInlineSvg(node);
+  if(!svg)return null;
+  const wrapper=svg.parentElement;
+  const marked=[node,wrapper,svg].some(el=>el?.hasAttribute('data-wc-symbol'));
+  const classes=[node.getAttribute('class')||'',wrapper?.getAttribute('class')||'',svg.getAttribute('class')||''].join(' ');
+  const iconClass=/(?:^|[\s_-])(?:icon|lucide|fa-[\w-]+|material-icons)(?:$|[\s_-])/i.test(classes);
+  const width=iconDimension(node,svg,'width'),height=iconDimension(node,svg,'height');
+  const w=Number.parseFloat(width),h=Number.parseFloat(height);
+  const small=Number.isFinite(w)&&Number.isFinite(h)&&w>0&&h>0&&w<=128&&h<=128;
+  const viewBox=(svg.getAttribute('viewBox')||'0 0 24 24').trim().split(/[\s,]+/).map(Number);
+  const ratio=viewBox.length===4&&viewBox[2]>0&&viewBox[3]>0?viewBox[2]/viewBox[3]:0;
+  const shapes=svg.querySelectorAll('path,circle,rect,line,polyline,polygon,ellipse').length;
+  if(!shapes||svg.querySelector('text,image,foreignObject')||(!marked&&!iconClass&&(!small||ratio<0.55||ratio>1.8)))return null;
+  const name=node.getAttribute('data-wc-symbol')||wrapper?.getAttribute('data-wc-symbol')||
+    svg.getAttribute('aria-label')||svg.querySelector('title')?.textContent||'Símbolo actual';
+  return {index,name,tag:node.tagName,width,height,strokeWidth:svg.getAttribute('stroke-width')||svg.style?.getPropertyValue('stroke-width')||''};
+}
+const SAFE_SVG_TAGS=new Set(['path','circle','rect','line','polyline','polygon','ellipse','g']);
+const SAFE_SVG_ATTRS=new Set(['d','cx','cy','r','rx','ry','x','y','x1','x2','y1','y2','width','height','points','transform',
+  'stroke','stroke-width','stroke-linecap','stroke-linejoin','stroke-dasharray','stroke-dashoffset','fill','fill-rule','clip-rule',
+  'opacity','fill-opacity','stroke-opacity','vector-effect','pathlength','class','id']);
+/** Sustituye solo la geometría SVG: conserva la caja, clases, estilos, color y grosor del icono de destino. */
+export function replaceInlineSymbol(html:string,index:number,entry:SymbolEntry):EditResult{
+  if(!entry||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(entry.name)||!Array.isArray(entry.node)||entry.node.length<1||entry.node.length>80)
+    throw Error('El símbolo seleccionado no es válido.');
+  const targetInfo=resolveSymbolTarget(html,index);
+  if(!targetInfo)throw Error('Selecciona un icono SVG individual para sustituirlo.');
+  const doc=parse(html);const target=nodeAt(doc,index);const oldSvg=selectedInlineSvg(target);
+  if(!oldSvg)throw Error('No se encuentra el icono seleccionado.');
+  const next=doc.createElementNS('http://www.w3.org/2000/svg','svg') as unknown as SVGSVGElement;
+  const keep=new Set(['width','height','class','style','stroke','stroke-width','stroke-linecap','stroke-linejoin','fill','color',
+    'role','aria-hidden','focusable','xmlns','preserveaspectratio','id']);
+  for(const attr of Array.from(oldSvg.attributes)){
+    if(keep.has(attr.name.toLowerCase()))next.setAttribute(attr.name,attr.value);
+  }
+  // Todos los símbolos Lucide usan la misma cuadrícula. Se conserva la caja exterior original.
+  next.setAttribute('viewBox','0 0 24 24');
+  if(!next.hasAttribute('fill'))next.setAttribute('fill','none');
+  if(!next.hasAttribute('stroke'))next.setAttribute('stroke','currentColor');
+  if(!next.hasAttribute('stroke-width')&&!next.style?.getPropertyValue('stroke-width'))next.setAttribute('stroke-width','2');
+  if(!next.hasAttribute('stroke-linecap'))next.setAttribute('stroke-linecap','round');
+  if(!next.hasAttribute('stroke-linejoin'))next.setAttribute('stroke-linejoin','round');
+  for(const [rawTag,rawAttrs] of entry.node){
+    const tag=String(rawTag).toLowerCase();
+    if(!SAFE_SVG_TAGS.has(tag))throw Error('La biblioteca contiene una forma SVG no admitida.');
+    const shape=doc.createElementNS('http://www.w3.org/2000/svg',tag);
+    for(const [rawName,rawValue] of Object.entries(rawAttrs||{})){
+      const name=rawName.replace(/[A-Z]/g,m=>'-'+m.toLowerCase()).toLowerCase();
+      const value=String(rawValue);
+      if(!SAFE_SVG_ATTRS.has(name)||value.length>5000||/javascript:|url\s*\(|<|>/i.test(value))continue;
+      shape.setAttribute(name,value);
+    }
+    next.appendChild(shape);
+  }
+  const wrapper=oldSvg.parentElement;
+  oldSvg.replaceWith(next);
+  const marker=wrapper||target;
+  marker.setAttribute('data-wc-symbol',entry.name);
+  marker.setAttribute('data-wc-name','Símbolo · '+entry.name.replace(/-/g,' '));
+  if(marker.getAttribute('role')==='img')marker.setAttribute('aria-label',entry.name.replace(/-/g,' '));
+  if(next.hasAttribute('aria-label'))next.setAttribute('aria-label',entry.name.replace(/-/g,' '));
   return {html:serialize(doc),index};
 }
 
