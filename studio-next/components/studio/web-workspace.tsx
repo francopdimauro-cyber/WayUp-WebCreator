@@ -24,7 +24,7 @@ import { addSection, duplicateSection, ensureSectionKeys, listSections, moveSect
 import { starterHtml } from '@/lib/starter-web';
 import { strFromU8, strToU8 } from 'fflate';
 import { visualReview } from '@/lib/visual-review';
-import { attachLocalImage, editHtmlStructure, htmlLayerOutline,
+import { assetMime, attachLocalImage, editHtmlStructure, htmlLayerOutline, removeLocalImage, resolveImageTarget,
   downloadBytes, htmlForExport, listSavedSites, livePreview, patchSelectedElement, safePreview,
   saveSite, siteFromHtml, siteFromZip, siteZip,
   type SiteBundle } from '@/lib/web-project-files';
@@ -247,6 +247,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   const [selectedValues,setSelectedValues]=useState({text:'',color:'',background:'',fontSize:'',href:'',alt:'',width:'',height:'',padding:'',margin:'',radius:'',fontWeight:'',fontFamily:'',textAlign:'',posX:'0',posY:'0'});
   const [explorerOpen,setExplorerOpen]=useState(false);
   const [inspectorOpen,setInspectorOpen]=useState(false);
+  const [inspectorTab,setInspectorTab]=useState<'properties'|'image'>('properties');
   const pendingSectionRef=useRef<string|null>(null);
   const pendingIndexRef=useRef<number|null>(null);
   // Selección múltiple (Mayús + clic): índices adicionales a la selección principal.
@@ -345,6 +346,14 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   const selectedRef=useRef<HTMLElement|null>(null);
   siteRef.current=site;
   const preview=useMemo(()=>site?safePreview(site):null,[site]);
+  const imageTarget=useMemo(()=>site&&selected!==null?resolveImageTarget(site,selected):null,[site,selected]);
+  const imagePreviewUrl=useMemo(()=>{
+    const bytes=imageTarget?.assetKey&&site?site.assets[imageTarget.assetKey]:undefined;
+    if(!bytes||!imageTarget?.imagePath)return '';
+    const copy=new Uint8Array(bytes.length);copy.set(bytes);
+    return URL.createObjectURL(new Blob([copy.buffer],{type:assetMime(imageTarget.imagePath)}));
+  },[site,imageTarget?.assetKey,imageTarget?.imagePath]);
+  useEffect(()=>()=>{if(imagePreviewUrl)URL.revokeObjectURL(imagePreviewUrl);},[imagePreviewUrl]);
   const liveHtml=useMemo(()=>{if(!live||!site)return '';try{return livePreview(site);}catch{return '';}},[live,site]);
   useEffect(()=>{if(!live)return;const k=(e:KeyboardEvent)=>{if(e.key==='Escape')setLive(false);};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k);},[live]);
   const previewHead=useMemo(()=>(preview?.html.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1]||''),[preview?.html]);
@@ -611,6 +620,11 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
         attrs:{href:element.getAttribute('href')||'',target:element.getAttribute('target')||'',alt:element.getAttribute('alt')||'',
           id:element.id||'',title:element.getAttribute('title')||'',ariaLabel:element.getAttribute('aria-label')||''}});
     }catch{setElementInfo(null);}
+    const photoTarget=siteRef.current?resolveImageTarget(siteRef.current,index):null;
+    if(photoTarget&&(photoTarget.kind==='item'||photoTarget.kind==='section')){
+      setInspectorTab('image');
+      setInspectorOpen(true);
+    }else setInspectorTab('properties');
     if(scroll)element.scrollIntoView({block:'center',behavior:'smooth'});
     if(toolRef.current==='select')drawResize(element);
   }
@@ -1071,13 +1085,31 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   }
   async function changeImage(file:File){
     if(!site||selected===null)return;
+    const target=resolveImageTarget(site,selected);
+    if(!target)return;
     try{
       const image=attachLocalImage(site,selected,new Uint8Array(await file.arrayBuffer()));
       setPast(old=>[...old.slice(-49),{html:site.html,assets:site.assets,parked:site.parked}]);setFuture([]);
+      pendingIndexRef.current=target.index;
       setSite(image);setDraftHtml(image.html);setDirty(true);
-      setSelected(null);selectedRef.current=null;
-      setNotice('Imagen incorporada al proyecto y al ZIP. Guarda la versión para conservarla.');
+      setSelected(null);selectedRef.current=null;setElementInfo(null);
+      setInspectorTab('image');
+      setNotice('Fotografía asociada a «'+target.label+'». Se guardará dentro del proyecto y del ZIP.');
     }catch(error){setNotice(error instanceof Error?error.message:'No se pudo adjuntar la imagen.');}
+  }
+  function removeImage(){
+    if(!site||selected===null)return;
+    const target=resolveImageTarget(site,selected);
+    if(!target)return;
+    try{
+      const next=removeLocalImage(site,selected);
+      setPast(old=>[...old.slice(-49),{html:site.html,assets:site.assets,parked:site.parked}]);setFuture([]);
+      pendingIndexRef.current=target.index;
+      setSite(next);setDraftHtml(next.html);setDirty(true);
+      setSelected(null);selectedRef.current=null;setElementInfo(null);
+      setInspectorTab('image');
+      setNotice('Fotografía eliminada de «'+target.label+'». Puedes deshacer el cambio.');
+    }catch(error){setNotice(error instanceof Error?error.message:'No se pudo eliminar la fotografía.');}
   }
   const patch=(changes:{text?:string;color?:string;background?:string;fontSize?:string;href?:string;alt?:string;width?:string;height?:string;padding?:string;margin?:string;radius?:string;fontWeight?:string;fontFamily?:string;textAlign?:string;moveX?:number;moveY?:number})=>{
     if(!site||selected===null)return;
@@ -1336,31 +1368,42 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
             </div>
           </>}
         </div>
-        <aside aria-label="Inspector de propiedades" className={'scroll-subtle w-[278px] shrink-0 overflow-y-auto border-l border-stroke bg-panel p-4 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-[70] max-lg:w-[min(320px,88vw)] max-lg:shadow-2xl '+(inspectorOpen?'':'max-lg:hidden')}>
-          <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-[12px] font-semibold"><SlidersHorizontal size={14} className="text-brand"/> Propiedades</h2>
-            <button type="button" onClick={()=>setInspectorOpen(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-mist hover:bg-raised lg:hidden" aria-label="Cerrar propiedades"><X size={15}/></button></div>
-          <p className="mb-4 text-[11px] leading-5 text-mist">Selecciona un elemento en la web o en el Explorador. Cada cambio se aplica al HTML real y se puede deshacer.</p>
+        <aside aria-label="Inspector de elementos" className={'scroll-subtle w-[278px] shrink-0 overflow-y-auto border-l border-stroke bg-panel p-4 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-[70] max-lg:w-[min(320px,88vw)] max-lg:shadow-2xl '+(inspectorOpen?'':'max-lg:hidden')}>
+          <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-[12px] font-semibold">{inspectorTab==='image'?<ImagePlus size={14} className="text-brand"/>:<SlidersHorizontal size={14} className="text-brand"/>} {inspectorTab==='image'?'Imagen':'Propiedades'}</h2>
+            <button type="button" onClick={()=>setInspectorOpen(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-mist hover:bg-raised lg:hidden" aria-label="Cerrar inspector"><X size={15}/></button></div>
+          <p className="mb-4 text-[11px] leading-5 text-mist">{inspectorTab==='image'?'Asocia una fotografía al plato, sección o elemento seleccionado.':'Selecciona un elemento en la web o en el Explorador. Cada cambio se aplica al HTML real y se puede deshacer.'}</p>
           {selected===null?<div className="rounded-lg border border-dashed border-stroke p-4 text-[11px] text-faint">Nada seleccionado.</div>:<>
             <div className="mb-2 rounded-lg border border-stroke bg-elevated px-3 py-2 font-mono text-[10px] text-mist">{activeLayer?.tag||'Nodo'} · #{selected}{activeSection?' · '+activeSection.name:''}</div>
-            {activeSection&&activeSection.index!==selected&&<div className="mb-4 grid grid-cols-4 gap-1" aria-label="Acciones del elemento">
-              <button className={btn+' justify-center px-0'} onClick={()=>modifyStructure('duplicate')} title="Duplicar elemento" aria-label="Duplicar elemento"><Copy size={13}/></button>
-              <button className={btn+' justify-center px-0'} onClick={()=>modifyStructure('up')} title="Subir elemento" aria-label="Subir elemento"><ArrowUp size={13}/></button>
-              <button className={btn+' justify-center px-0'} onClick={()=>modifyStructure('down')} title="Bajar elemento" aria-label="Bajar elemento"><ArrowDown size={13}/></button>
-              <button className={btn+' justify-center px-0 text-red-400'} onClick={()=>modifyStructure('remove')} title="Eliminar elemento" aria-label="Eliminar elemento"><Trash2 size={13}/></button>
-            </div>}
-            {elementInfo&&elementInfo.index===selected&&<PropertyPanel info={elementInfo}
+            <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg border border-stroke bg-elevated p-1" role="tablist" aria-label="Panel del elemento">
+              <button type="button" role="tab" aria-selected={inspectorTab==='properties'} onClick={()=>setInspectorTab('properties')}
+                className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='properties'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Propiedades</button>
+              <button type="button" role="tab" aria-selected={inspectorTab==='image'} onClick={()=>setInspectorTab('image')}
+                className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='image'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Imagen</button>
+            </div>
+            {inspectorTab==='image'?<div className="space-y-3">
+              <div className="rounded-lg border border-stroke bg-elevated p-3">
+                <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold"><ImagePlus size={14} className="text-brand"/>{imageTarget?.kind==='item'?'Fotografía del plato':imageTarget?.kind==='section'?'Fotografía de la sección':'Fotografía del elemento'}</div>
+                <p className="text-[11px] leading-5 text-mist">{imageTarget?.label||'Elemento seleccionado'}</p>
+              </div>
+              {imagePreviewUrl?<img src={imagePreviewUrl} alt={imageTarget?.imageAlt||'Fotografía asociada'} className="max-h-48 w-full rounded-lg border border-stroke object-cover"/>:
+                imageTarget?.hasImage?<div className="rounded-lg border border-dashed border-stroke p-3 text-[11px] leading-5 text-mist">Este elemento ya contiene una imagen enlazada. Puedes sustituirla por una fotografía guardada dentro del proyecto.</div>:
+                <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-stroke p-4 text-center">
+                  <ImagePlus size={24} className="text-faint"/><span className="text-[11px] text-mist">Todavía no hay ninguna fotografía asociada.</span>
+                </div>}
+              <label className={primary+' w-full cursor-pointer'}>
+                <ImagePlus size={14}/>{imageTarget?.hasImage?'Sustituir fotografía':'Subir fotografía'}
+                <input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Subir fotografía del elemento"
+                  onChange={e=>{const file=e.currentTarget.files?.[0];if(file)void changeImage(file);e.currentTarget.value='';}}/>
+              </label>
+              {imageTarget?.managedImage&&<button type="button" className={btn+' w-full justify-center text-red-400'} onClick={removeImage}><Trash2 size={13}/> Eliminar fotografía</button>}
+              <p className="text-[10px] leading-5 text-faint">PNG, JPG, GIF o WebP · máximo 5 MB. La foto se inserta en el plato o sección seleccionada, se incluye en el ZIP y puedes deshacer el cambio.</p>
+            </div>:elementInfo&&elementInfo.index===selected?<PropertyPanel info={elementInfo}
               onStyles={styles=>tryEdit(()=>setStyles(site.html,elementInfo.index,styles),'Estilo aplicado al elemento.')}
               onFont={family=>tryEdit(()=>setFont(site.html,elementInfo.index,family),'Tipografía aplicada: '+family.split(',')[0].replace(/["']/g,'')+'.')}
               onPreview={styles=>{const el=selectedRef.current;if(!el)return;for(const [prop,value] of Object.entries(styles))el.style.setProperty(prop,value);}}
               onAttrs={attrs=>tryEdit(()=>setAttributes(site.html,elementInfo.index,attrs),'Atributos actualizados.')}
               onText={text=>tryEdit(()=>setInlineContent(site.html,elementInfo.index,escapeText(text)),'Texto actualizado.')}
-              onEditText={()=>startTextEdit(elementInfo.index)}
-              extra={['IMG','A','HEADER','NAV','DIV','SECTION','FIGURE','ARTICLE','ASIDE','MAIN','FOOTER'].includes(activeLayer?.tag||'')&&<div className="mb-4 rounded-lg border border-stroke p-3">
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold"><ImagePlus size={15} className="text-brand"/> {activeLayer?.tag==='IMG'?'Sustituir imagen o logo':'Adjuntar logo o imagen'}</div>
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Adjuntar imagen para reemplazar la seleccionada"
-                className="block w-full text-[10px] text-mist" onChange={e=>{const file=e.target.files?.[0];if(file)void changeImage(file);e.currentTarget.value='';}}/>
-              <p className="my-2 text-[10px] leading-4 text-faint">PNG, JPG, GIF o WebP. Máximo 5 MB. La imagen queda dentro del ZIP.</p>
-            </div>}/>}
+              onEditText={()=>startTextEdit(elementInfo.index)}/>:<div className="rounded-lg border border-dashed border-stroke p-3 text-[11px] text-faint">No hay propiedades disponibles para esta selección.</div>}
           </>}
           <div className="mt-7 border-t border-stroke pt-4 text-[10px] leading-5 text-faint">Lienzo de edición protegido: aquí el JavaScript no se ejecuta. Pulsa «En vivo» para ver la web funcionando con sus scripts; todo se conserva al exportar.</div>
         </aside>
