@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/studio-next-premium-redesign
+      - feature/editor-image-panel-menu-items-20261117
     paths:
       - 'studio-next/**'
       - '.github/workflows/studio-next-ci.yml'
