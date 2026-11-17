@@ -1,20 +1,9 @@
 /**
- * Validación defensiva del CSS personalizado de una web.
- * No intenta sustituir a un parser completo: detecta errores estructurales y bloquea
- * cargas externas/imports y construcciones activas antes de aplicar el código al proyecto.
+ * Validación defensiva del CSS personalizado y validación estructural de hojas existentes.
+ * No sustituye a un parser completo: detecta errores de estructura y, en el CSS personalizado,
+ * bloquea imports, cargas externas y construcciones activas.
  */
-export function validateCssSource(source:string):string|null{
-  if(source.length>50_000)return 'El CSS supera el límite de 50.000 caracteres.';
-  if(/<\/?\s*style\b/i.test(source))return 'No incluyas etiquetas <style>: escribe únicamente reglas CSS.';
-  if(/@import\b/i.test(source))return 'Las reglas @import están desactivadas. Añade los estilos al propio editor.';
-  if(/expression\s*\(|javascript\s*:|behavior\s*:|-moz-binding|<\s*script\b/i.test(source))
-    return 'El CSS contiene una construcción no permitida.';
-  const urls=source.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)/gi);
-  for(const match of urls){
-    const value=(match[1]??match[2]??match[3]??'').trim();
-    if(!/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(value))
-      return 'No se permiten recursos externos en CSS. Utiliza imágenes incorporadas al proyecto.';
-  }
+export function validateCssStructure(source:string):string|null{
   const stack:{char:string;line:number;column:number}[]=[];
   let quote='',comment=false,escaped=false,line=1,column=0;
   for(let i=0;i<source.length;i++){
@@ -47,4 +36,18 @@ export function validateCssSource(source:string):string|null{
     return 'Falta cerrar «'+open.char+'» abierto en la línea '+open.line+'.';
   }
   return null;
+}
+export function validateCssSource(source:string):string|null{
+  if(source.length>50_000)return 'El CSS supera el límite de 50.000 caracteres.';
+  if(/<\/?\s*style\b/i.test(source))return 'No incluyas etiquetas <style>: escribe únicamente reglas CSS.';
+  if(/@import\b/i.test(source))return 'Las reglas @import están desactivadas. Añade los estilos al propio editor.';
+  if(/expression\s*\(|javascript\s*:|behavior\s*:|-moz-binding|<\s*script\b/i.test(source))
+    return 'El CSS contiene una construcción no permitida.';
+  const urls=source.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)/gi);
+  for(const match of urls){
+    const value=(match[1]??match[2]??match[3]??'').trim();
+    if(!/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(value))
+      return 'No se permiten recursos externos en CSS. Utiliza imágenes incorporadas al proyecto.';
+  }
+  return validateCssStructure(source);
 }
