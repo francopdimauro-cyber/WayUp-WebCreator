@@ -21,7 +21,7 @@ import { ParkedItem, type Parked } from './parked-item';
 import { InsertPanel, BLOCK_MIME, SECTION_MIME } from './insert-panel';
 import { computeDrop, showIndicator, hideIndicator, drawHandles, clearHandles } from './canvas-interactions';
 import { blockById, isSectionBlock, instantiateBlock } from '@/lib/canvas-blocks';
-import { EDITABLE_STYLE_PROPS, copyElement, duplicateElement, isTextEditable, moveElement, parentIndex, pasteElement, removeElement, setAttributes, setFont, setInlineContent, setStyles, toggleHidden, groupElements, ungroupElement, insertSnippet, moveElementTo, canContain, writeSeo, replaceInlineSymbol, resolveSymbolTarget, type EditResult } from '@/lib/element-editing';
+import { EDITABLE_STYLE_PROPS, copyElement, duplicateElement, isTextEditable, moveElement, parentIndex, pasteElement, removeElement, setAttributes, setFont, setInlineContent, setStyles, toggleHidden, groupElements, ungroupElement, insertSnippet, moveElementTo, canContain, writeSeo, replaceInlineSymbol, resolveSymbolTarget, symbolFitTransform, type EditResult } from '@/lib/element-editing';
 import { validateCssSource } from '@/lib/css-validation';
 import { ThemeToggle } from './theme-toggle';
 import { addSection, duplicateSection, ensureSectionKeys, listSections, moveSection, removeSection, renameSection, sectionForIndex } from '@/lib/html-sections';
@@ -1130,8 +1130,10 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   }
   function replaceSelectedSymbol(entry:SymbolEntry){
     if(!site||selected===null)return;
-    tryEdit(()=>replaceInlineSymbol(site.html,selected,entry),
-      'Símbolo sustituido por «'+entry.name.replace(/-/g,' ')+'». Se han conservado sus dimensiones, color y estilo.');
+    const currentSvg=selectedRef.current?.querySelector('svg') as SVGSVGElement|null;
+    const fitTransform=currentSvg?symbolFitTransform(entry,currentSvg):null;
+    tryEdit(()=>replaceInlineSymbol(site.html,selected,entry,fitTransform),
+      'Símbolo sustituido por «'+entry.name.replace(/-/g,' ')+'». Se han conservado su caja, color y tamaño visual.');
   }
   const patch=(changes:{text?:string;color?:string;background?:string;fontSize?:string;href?:string;alt?:string;width?:string;height?:string;padding?:string;margin?:string;radius?:string;fontWeight?:string;fontFamily?:string;textAlign?:string;moveX?:number;moveY?:number})=>{
     if(!site||selected===null)return;
