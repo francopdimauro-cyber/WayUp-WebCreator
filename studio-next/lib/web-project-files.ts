@@ -336,8 +336,8 @@ export type ImageTargetInfo={
 const MENU_ITEM_SELECTOR='li,tr,[role="listitem"],[data-wc-menu-item],[data-menu-item],[class*="menu-item"],[class*="menu_item"],[class*="dish"],[class*="plato"],[class*="carta-item"]';
 function imageAssetKey(site:SiteBundle,src:string):string|null{
   const raw=src.trim();
-  if(!raw||/^(?:[a-z]+:|\\/\\/|#)/i.test(raw))return null;
-  const path=raw.split(/[?#]/)[0].replace(/^\\.\\//,'');
+  if(!raw||/^(?:[a-z]+:|\/\/|#)/i.test(raw))return null;
+  const path=raw.split(/[?#]/)[0].replace(/^\.\//,'');
   const folder=site.entry.includes('/')?site.entry.slice(0,site.entry.lastIndexOf('/')+1):'';
   if(Object.prototype.hasOwnProperty.call(site.assets,folder+path))return folder+path;
   if(Object.prototype.hasOwnProperty.call(site.assets,path))return path;
@@ -346,7 +346,7 @@ function imageAssetKey(site:SiteBundle,src:string):string|null{
 function assetReferenced(doc:Document,key:string,entry:string):boolean{
   const folder=entry.includes('/')?entry.slice(0,entry.lastIndexOf('/')+1):'';
   return Array.from(doc.querySelectorAll('[src],[poster]')).some(node=>{
-    const src=(node.getAttribute('src')||node.getAttribute('poster')||'').split(/[?#]/)[0].replace(/^\\.\\//,'');
+    const src=(node.getAttribute('src')||node.getAttribute('poster')||'').split(/[?#]/)[0].replace(/^\.\//,'');
     return src===key||Boolean(folder&&folder+src===key);
   });
 }
@@ -360,25 +360,27 @@ export function resolveImageTarget(site:SiteBundle,index:number):ImageTargetInfo
   let item=selected.closest<HTMLElement>(MENU_ITEM_SELECTOR);
   // Los <li> de navegación no son platos ni productos.
   if(item&&item.closest('nav,header'))item=null;
+  const isSectionNode=selected.matches('[data-wc-section],section,main,header,footer');
+  const isSectionHeading=/^H[1-2]$/.test(selected.tagName);
+  const section=selected.closest<HTMLElement>('[data-wc-section],section,main,article');
   const compactRow=(node:HTMLElement|null):node is HTMLElement=>{
-    if(!node||node.tagName!=='DIV'||node.closest('nav,header'))return false;
-    const text=(node.textContent||'').replace(/\\s+/g,' ').trim();
+    if(!node||node.tagName!=='DIV'||node.closest('nav,header')||node.matches('[data-wc-section]'))return false;
+    const text=(node.textContent||'').replace(/\s+/g,' ').trim();
     return text.length>0&&text.length<=260&&node.children.length>0&&node.children.length<=8&&
       !node.querySelector('section,article,ul,ol,table,form,header,footer,nav');
   };
-  if(!item){
+  // Un encabezado de sección debe asociarse a su sección, no al div que solo contiene el título.
+  if(!item&&!isSectionNode&&!isSectionHeading){
     let parent=selected.parentElement as HTMLElement|null;
     while(parent&&parent!==doc.body&&parent.tagName!=='DIV')parent=parent.parentElement as HTMLElement|null;
     if(compactRow(parent))item=parent;
     else if(compactRow(selected))item=selected;
   }
-  const isHeading=/^H[1-6]$/.test(selected.tagName);
-  const section=selected.closest<HTMLElement>('[data-wc-section],section,main,article');
   let target:HTMLElement;
   let kind:ImageTargetKind;
   if(item){
     target=item;kind='item';
-  }else if(section&&(selected===section||selected.hasAttribute('data-wc-section')||isHeading)){
+  }else if(section&&(selected===section||isSectionNode||isSectionHeading)){
     target=section;kind='section';
   }else{
     target=selected;kind='element';
@@ -392,11 +394,11 @@ export function resolveImageTarget(site:SiteBundle,index:number):ImageTargetInfo
   const imageAlt=image?.getAttribute('alt')||'';
   const imageIndex=image?nodes.indexOf(image):-1;
   const managedImage=Boolean(image&&(image.hasAttribute('data-wayup-photo')||
-    (/^wayup-media\\//.test(imagePath)&&imageAlt==='Imagen')));
+    (/^wayup-media\//.test(imagePath)&&imageAlt==='Imagen')));
   const heading=target.querySelector<HTMLElement>('h1,h2,h3,h4,h5,h6');
   const rawLabel=target.getAttribute('data-wc-name')||target.getAttribute('aria-label')||
     (kind==='section'?(heading?.textContent||target.id):target.textContent)||target.id||target.tagName;
-  const label=(rawLabel||target.tagName).replace(/\\s+/g,' ').trim().slice(0,72)||target.tagName.toLowerCase();
+  const label=(rawLabel||target.tagName).replace(/\s+/g,' ').trim().slice(0,72)||target.tagName.toLowerCase();
   return {index:targetIndex,kind,tag:target.tagName,label,imageIndex:imageIndex>=0?imageIndex:null,
     imagePath,imageAlt,assetKey:imageAssetKey(site,imagePath),hasImage:Boolean(image),managedImage};
 }
