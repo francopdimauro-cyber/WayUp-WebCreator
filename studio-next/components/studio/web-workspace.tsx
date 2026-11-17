@@ -453,7 +453,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   const readPageJs=(html:string)=>(new DOMParser().parseFromString(html,'text/html').body.querySelector('script[data-wc-page-js]')?.textContent||'').replace(/<\\\/script/gi,'</script');
   const jsFiles=useMemo(()=>site?Object.keys(site.assets).filter(p=>/\.m?js$/i.test(p)).sort():[],[site]);
   const openCodeFile=(file:string)=>{
-    if(!site)return;
+    if(!site||file===codeFile)return;
     setCodeFile(file);
     if(file==='__html__')setDraftHtml(site.html);
     else if(file===PAGE_CSS)setDraftCode(readPageCss(site.html));
