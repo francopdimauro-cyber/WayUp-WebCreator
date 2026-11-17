@@ -130,8 +130,48 @@ const SAFE_SVG_TAGS=new Set(['path','circle','rect','line','polyline','polygon',
 const SAFE_SVG_ATTRS=new Set(['d','cx','cy','r','rx','ry','x','y','x1','x2','y1','y2','width','height','points','transform',
   'stroke','stroke-width','stroke-linecap','stroke-linejoin','stroke-dasharray','stroke-dashoffset','fill','fill-rule','clip-rule',
   'opacity','fill-opacity','stroke-opacity','vector-effect','pathlength','class','id']);
-/** Sustituye solo la geometría SVG: conserva la caja, clases, estilos, color y grosor del icono de destino. */
-export function replaceInlineSymbol(html:string,index:number,entry:SymbolEntry):EditResult{
+function symbolGeometry(doc:Document,entry:SymbolEntry):SVGGElement{
+  const group=doc.createElementNS('http://www.w3.org/2000/svg','g') as SVGGElement;
+  for(const [rawTag,rawAttrs] of entry.node){
+    const tag=String(rawTag).toLowerCase();
+    if(!SAFE_SVG_TAGS.has(tag))throw Error('La biblioteca contiene una forma SVG no admitida.');
+    const shape=doc.createElementNS('http://www.w3.org/2000/svg',tag);
+    for(const [rawName,rawValue] of Object.entries(rawAttrs||{})){
+      const name=rawName.replace(/[A-Z]/g,m=>'-'+m.toLowerCase()).toLowerCase();
+      const value=String(rawValue);
+      if(!SAFE_SVG_ATTRS.has(name)||value.length>5000||/javascript:|url\s*\(|<|>/i.test(value))continue;
+      shape.setAttribute(name,value);
+    }
+    group.appendChild(shape);
+  }
+  return group;
+}
+/** Ajusta la geometría nueva al tamaño visible exacto del glifo que se está sustituyendo. */
+export function symbolFitTransform(entry:SymbolEntry,targetSvg:SVGSVGElement):string|null{
+  try{
+    const oldBox=(targetSvg as unknown as SVGGraphicsElement).getBBox();
+    const parts=(targetSvg.getAttribute('viewBox')||'0 0 24 24').trim().split(/[\s,]+/).map(Number);
+    const vx=parts[0]||0,vy=parts[1]||0,vw=parts[2]||24,vh=parts[3]||24;
+    if(!vw||!vh||oldBox.width<=0||oldBox.height<=0)return null;
+    const doc=targetSvg.ownerDocument;
+    const probe=doc.createElementNS('http://www.w3.org/2000/svg','svg') as SVGSVGElement;
+    probe.setAttribute('viewBox','0 0 24 24');probe.setAttribute('width','24');probe.setAttribute('height','24');
+    probe.style.cssText='position:absolute;left:-10000px;top:-10000px;visibility:hidden;overflow:visible;pointer-events:none';
+    const group=symbolGeometry(doc,entry);
+    probe.appendChild(group);doc.body.appendChild(probe);
+    const newBox=(group as unknown as SVGGraphicsElement).getBBox();
+    probe.remove();
+    if(newBox.width<=0||newBox.height<=0)return null;
+    const target={x:(oldBox.x-vx)*24/vw,y:(oldBox.y-vy)*24/vh,width:oldBox.width*24/vw,height:oldBox.height*24/vh};
+    const scale=Math.min(target.width/newBox.width,target.height/newBox.height);
+    if(!Number.isFinite(scale)||scale<=0||scale>20)return null;
+    const tx=target.x+(target.width-newBox.width*scale)/2-newBox.x*scale;
+    const ty=target.y+(target.height-newBox.height*scale)/2-newBox.y*scale;
+    return 'translate('+tx.toFixed(4)+' '+ty.toFixed(4)+') scale('+scale.toFixed(4)+')';
+  }catch{return null;}
+}
+/** Sustituye la geometría SVG conservando la caja exterior y ajustando el nuevo glifo al tamaño visible anterior. */
+export function replaceInlineSymbol(html:string,index:number,entry:SymbolEntry,fitTransform?:string|null):EditResult{
   if(!entry||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(entry.name)||!Array.isArray(entry.node)||entry.node.length<1||entry.node.length>80)
     throw Error('El símbolo seleccionado no es válido.');
   const targetInfo=resolveSymbolTarget(html,index);
@@ -144,30 +184,26 @@ export function replaceInlineSymbol(html:string,index:number,entry:SymbolEntry):
   for(const attr of Array.from(oldSvg.attributes)){
     if(keep.has(attr.name.toLowerCase()))next.setAttribute(attr.name,attr.value);
   }
-  // Todos los símbolos Lucide usan la misma cuadrícula. Se conserva la caja exterior original.
+  // Los símbolos Lucide comparten cuadrícula; la caja exterior y el tamaño responsive del destino se mantienen.
   next.setAttribute('viewBox','0 0 24 24');
   if(!next.hasAttribute('fill'))next.setAttribute('fill','none');
   if(!next.hasAttribute('stroke'))next.setAttribute('stroke','currentColor');
   if(!next.hasAttribute('stroke-width')&&!next.style?.getPropertyValue('stroke-width'))next.setAttribute('stroke-width','2');
   if(!next.hasAttribute('stroke-linecap'))next.setAttribute('stroke-linecap','round');
   if(!next.hasAttribute('stroke-linejoin'))next.setAttribute('stroke-linejoin','round');
-  for(const [rawTag,rawAttrs] of entry.node){
-    const tag=String(rawTag).toLowerCase();
-    if(!SAFE_SVG_TAGS.has(tag))throw Error('La biblioteca contiene una forma SVG no admitida.');
-    const shape=doc.createElementNS('http://www.w3.org/2000/svg',tag);
-    for(const [rawName,rawValue] of Object.entries(rawAttrs||{})){
-      const name=rawName.replace(/[A-Z]/g,m=>'-'+m.toLowerCase()).toLowerCase();
-      const value=String(rawValue);
-      if(!SAFE_SVG_ATTRS.has(name)||value.length>5000||/javascript:|url\s*\(|<|>/i.test(value))continue;
-      shape.setAttribute(name,value);
-    }
-    next.appendChild(shape);
+  const geometry=symbolGeometry(doc,entry);
+  if(fitTransform&&/^translate\(-?[\d.]+ -?[\d.]+\) scale\([\d.]+\)$/.test(fitTransform)){
+    geometry.setAttribute('transform',fitTransform);
+    next.appendChild(geometry);
+  }else{
+    while(geometry.firstChild)next.appendChild(geometry.firstChild);
   }
   const wrapper=oldSvg.parentElement;
   oldSvg.replaceWith(next);
-  const marker=wrapper||target;
+  const marker=wrapper&&['SPAN','I','EM'].includes(wrapper.tagName)?wrapper:target;
   marker.setAttribute('data-wc-symbol',entry.name);
-  marker.setAttribute('data-wc-name','Símbolo · '+entry.name.replace(/-/g,' '));
+  const currentName=marker.getAttribute('data-wc-name')||'';
+  if(!currentName||currentName.startsWith('Símbolo ·'))marker.setAttribute('data-wc-name','Símbolo · '+entry.name.replace(/-/g,' '));
   if(marker.getAttribute('role')==='img')marker.setAttribute('aria-label',entry.name.replace(/-/g,' '));
   if(next.hasAttribute('aria-label'))next.setAttribute('aria-label',entry.name.replace(/-/g,' '));
   return {html:serialize(doc),index};
