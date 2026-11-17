@@ -96,6 +96,33 @@ export function setStyles(html:string,index:number,styles:Record<string,string>)
   return {html:serialize(doc),index};
 }
 
+/* ── Acciones contextuales de botones ───────────────────────────────────── */
+export type ButtonTargetInfo={index:number;tag:string;label:string};
+/** Resuelve el botón real aunque se haya seleccionado un span, icono o texto interior. */
+export function resolveButtonTarget(html:string,index:number):ButtonTargetInfo|null{
+  const doc=parse(html);let node:HTMLElement|null=nodeAt(doc,index);
+  while(node&&node!==doc.body){
+    const tag=node.tagName.toUpperCase();
+    const role=(node.getAttribute('role')||'').toLowerCase();
+    const classes=(node.getAttribute('class')||'').split(/\s+/);
+    const buttonClass=classes.some(name=>/(?:^|[-_])(?:btn|button|cta)(?:$|[-_])/i.test(name));
+    const inline=node.getAttribute('style')||'';
+    const styledAnchor=tag==='A'&&/(?:background(?:-color)?|border(?:-radius)?|padding)\s*:/i.test(inline);
+    const semantic=tag==='BUTTON'||role==='button'||
+      (tag==='INPUT'&&['button','submit','reset'].includes((node.getAttribute('type')||'').toLowerCase()));
+    if(semantic||((tag==='A')&&(buttonClass||styledAnchor))){
+      const targetIndex=indexOf(doc,node);
+      if(targetIndex!==null){
+        const label=(node.getAttribute('aria-label')||node.textContent||node.getAttribute('title')||tag)
+          .replace(/\s+/g,' ').trim().slice(0,72);
+        return {index:targetIndex,tag,label:label||tag.toLowerCase()};
+      }
+    }
+    node=node.parentElement;
+  }
+  return null;
+}
+
 /* ── Sustitución de símbolos SVG ─────────────────────────────────────────── */
 export type SymbolTargetInfo={index:number;name:string;tag:string;width:string;height:string;strokeWidth:string};
 function selectedInlineSvg(node:HTMLElement):SVGSVGElement|null{
