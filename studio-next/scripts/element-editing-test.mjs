@@ -168,10 +168,10 @@ assert.equal(Object.keys(zippedMenu.assets).filter(x=>x.startsWith('wayup-media/
 assert.match(zippedMenu.html,/data-wayup-photo-kind="item"/);
 
 // Sustitución de iconos: conserva la caja CSS, dimensiones SVG, color y grosor del destino.
-const ICON_HTML=\`<!DOCTYPE html><html lang="es"><head></head><body><section>
+const ICON_HTML=`<!DOCTYPE html><html lang="es"><head></head><body><section>
 <span class="feature-icon" data-wc-symbol="house" data-wc-name="Símbolo · house" style="display:inline-flex;width:32px;height:32px;color:#b4233d">
 <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/></svg>
-</span></section></body></html>\`;
+</span></section></body></html>`;
 const iconIndex=idx(ICON_HTML,'.feature-icon');
 const iconTarget=E.resolveSymbolTarget(ICON_HTML,iconIndex);
 assert.equal(iconTarget?.name,'house','Reconoce el símbolo existente');
@@ -191,7 +191,7 @@ assert.equal(iconSvg.getAttribute('stroke-width'),'1.5','Conserva el grosor de t
 assert.equal(iconSvg.getAttribute('stroke'),'currentColor','Conserva el color heredado');
 assert.equal(iconSvg.querySelectorAll('path').length,4,'Sustituye la geometría completa');
 assert.equal(E.resolveSymbolTarget(replacedIcon.html,iconIndex)?.name,'house-plus');
-const multiIconHtml=\`<!DOCTYPE html><html><head></head><body><button><svg width="20" height="20" viewBox="0 0 24 24"><path d="M1 1"/></svg><svg width="20" height="20" viewBox="0 0 24 24"><path d="M2 2"/></svg></button></body></html>\`;
+const multiIconHtml=`<!DOCTYPE html><html><head></head><body><button><svg width="20" height="20" viewBox="0 0 24 24"><path d="M1 1"/></svg><svg width="20" height="20" viewBox="0 0 24 24"><path d="M2 2"/></svg></button></body></html>`;
 assert.equal(E.resolveSymbolTarget(multiIconHtml,idx(multiIconHtml,'button')),null,'No ofrece sustitución si el contenedor tiene varios SVG');
 
 // CSS: acepta reglas y media queries; rechaza estructura rota, imports y cargas externas.
