@@ -230,6 +230,8 @@ const styledRefugioDoc=doc(styledRefugio.html);
 const styledRefugioCta=styledRefugioDoc.querySelector('a.btn--primary[href="#reservas"]');
 assert.equal(styledRefugioCta.getAttribute('href'),'#reservas','Cambiar el estilo no altera el destino del botón');
 assert.match(styledRefugioCta.getAttribute('style')||'',/background-color:\s*#c8324b/i);
+assert.equal(styledRefugioCta.style.getPropertyValue('display'),'',
+  'Cambiar el botón no fuerza display ni rompe el layout interno definido por su CSS original');
 
 // Al seleccionar una imagen real del restaurante, el inspector debe resolverla como imagen sustituible.
 const refugioSite=F.siteFromHtml(REFUGIO_HTML,'El Refugio de Chilla');
