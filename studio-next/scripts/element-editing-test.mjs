@@ -12,11 +12,12 @@ const tmp=join(root,'.wayup-element-test-'+process.pid);
 mkdirSync(tmp,{recursive:true});
 const emit=name=>writeFileSync(join(tmp,name+'.mjs'),ts.transpileModule(readFileSync(join(root,'lib',name+'.ts'),'utf8'),
   {compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace(/from '\.\/([\w-]+)'/g,"from './$1.mjs'"));
-let E,F;
+let E,F,V;
 try{
-  emit('web-project-files');emit('element-editing');
+  emit('web-project-files');emit('element-editing');emit('css-validation');
   F=await import(pathToFileURL(join(tmp,'web-project-files.mjs')).href);
   E=await import(pathToFileURL(join(tmp,'element-editing.mjs')).href);
+  V=await import(pathToFileURL(join(tmp,'css-validation.mjs')).href);
 }finally{rmSync(tmp,{recursive:true,force:true})}
 
 const HTML=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Web ficticia</title></head><body>
@@ -166,4 +167,40 @@ const zippedMenu=F.siteFromZip(F.siteZip(menuWithPhoto));
 assert.equal(Object.keys(zippedMenu.assets).filter(x=>x.startsWith('wayup-media/')).length,1,'La fotografía del plato sobrevive a exportar y reabrir el ZIP');
 assert.match(zippedMenu.html,/data-wayup-photo-kind="item"/);
 
-console.log('Correcto: estilos validados, texto en línea seguro, atributos, copiar/pegar/duplicar, mover, ocultar, eliminar y SEO.');
+// Sustitución de iconos: conserva la caja CSS, dimensiones SVG, color y grosor del destino.
+const ICON_HTML=\`<!DOCTYPE html><html lang="es"><head></head><body><section>
+<span class="feature-icon" data-wc-symbol="house" data-wc-name="Símbolo · house" style="display:inline-flex;width:32px;height:32px;color:#b4233d">
+<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/></svg>
+</span></section></body></html>\`;
+const iconIndex=idx(ICON_HTML,'.feature-icon');
+const iconTarget=E.resolveSymbolTarget(ICON_HTML,iconIndex);
+assert.equal(iconTarget?.name,'house','Reconoce el símbolo existente');
+assert.equal(iconTarget?.width,'32px','Lee la anchura real del contenedor');
+assert.equal(iconTarget?.height,'32px','Lee la altura real del contenedor');
+const iconEntry={name:'house-plus',node:[['path',{d:'M3 10.5 12 3l9 7.5'}],['path',{d:'M5 9v12h14V9'}],['path',{d:'M19 16v6'}],['path',{d:'M16 19h6'}]]};
+const replacedIcon=E.replaceInlineSymbol(ICON_HTML,iconIndex,iconEntry);
+const iconDoc=doc(replacedIcon.html);
+const iconWrapper=iconDoc.querySelector('.feature-icon');
+const iconSvg=iconWrapper.querySelector('svg');
+assert.equal(iconWrapper.getAttribute('style'),'display:inline-flex;width:32px;height:32px;color:#b4233d','Conserva el estilo del contenedor');
+assert.equal(iconWrapper.getAttribute('data-wc-symbol'),'house-plus');
+assert.equal(iconSvg.getAttribute('width'),'100%','Conserva el ancho SVG original');
+assert.equal(iconSvg.getAttribute('height'),'100%','Conserva el alto SVG original');
+assert.equal(iconSvg.getAttribute('viewBox'),'0 0 24 24','Normaliza la cuadrícula Lucide');
+assert.equal(iconSvg.getAttribute('stroke-width'),'1.5','Conserva el grosor de trazo original');
+assert.equal(iconSvg.getAttribute('stroke'),'currentColor','Conserva el color heredado');
+assert.equal(iconSvg.querySelectorAll('path').length,4,'Sustituye la geometría completa');
+assert.equal(E.resolveSymbolTarget(replacedIcon.html,iconIndex)?.name,'house-plus');
+const multiIconHtml=\`<!DOCTYPE html><html><head></head><body><button><svg width="20" height="20" viewBox="0 0 24 24"><path d="M1 1"/></svg><svg width="20" height="20" viewBox="0 0 24 24"><path d="M2 2"/></svg></button></body></html>\`;
+assert.equal(E.resolveSymbolTarget(multiIconHtml,idx(multiIconHtml,'button')),null,'No ofrece sustitución si el contenedor tiene varios SVG');
+
+// CSS: acepta reglas y media queries; rechaza estructura rota, imports y cargas externas.
+assert.equal(V.validateCssSource(':root { --brand: #123456; } @media (max-width: 700px) { .hero { padding: 1rem; } }'),null);
+assert.equal(V.validateCssSource('/* comentario con } */ .hero { color: red; }'),null);
+assert.match(V.validateCssSource('.hero { color: red;')||'',/Falta cerrar/);
+assert.match(V.validateCssSource('.hero { content: "sin cerrar; }')||'',/cadena CSS sin cerrar/);
+assert.match(V.validateCssSource('@import url("https://example.com/a.css");')||'',/@import/);
+assert.match(V.validateCssSource('.hero { background: url(https://example.com/a.png); }')||'',/recursos externos/);
+assert.match(V.validateCssSource('<style>.hero{color:red}</style>')||'',/etiquetas <style>/);
+
+console.log('Correcto: edición HTML/CSS, iconos, estilos, imágenes, atributos, estructura y exportación.');
