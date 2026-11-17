@@ -82,6 +82,9 @@ export function CssCodeEditor({value,onChange,error}:Props){
       <pre ref={highlight} aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre py-4 pl-[68px] pr-5 font-mono text-[12px] leading-6 text-[#dce6f5] [tab-size:2]">
         {lines.map((line,i)=><React.Fragment key={i}>{highlightLine(line)}{i<lines.length-1?'\n':''}</React.Fragment>)}
       </pre>
+      {!value.trim()&&<div aria-hidden="true" className="pointer-events-none absolute left-[68px] top-4 z-[1] font-mono text-[12px] leading-6 text-[#64748b]">
+        /* Escribe aquí tus reglas CSS */<br/>.hero h1 {'{'}<br/>  letter-spacing: -0.02em;<br/>{'}'}
+      </div>}
       <textarea ref={editor} aria-label="Editor de código CSS" spellCheck={false} wrap="off" value={value}
         onChange={e=>{onChange(e.target.value);setCompletionOpen(false);}}
         onKeyDown={keyDown} onScroll={syncScroll}
