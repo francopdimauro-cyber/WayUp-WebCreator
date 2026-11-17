@@ -199,6 +199,9 @@ assert.equal(E.resolveSymbolTarget(multiIconHtml,idx(multiIconHtml,'button')),nu
 
 // CSS: acepta reglas y media queries; rechaza estructura rota, imports y cargas externas.
 assert.equal(V.validateCssSource(':root { --brand: #123456; } @media (max-width: 700px) { .hero { padding: 1rem; } }'),null);
+assert.equal(V.validateCssStructure('@import url("https://example.com/theme.css"); .hero { color: red; }'),null,
+  'Las hojas CSS originales pueden conservar imports y URLs; se valida su estructura sin aplicar las restricciones del CSS personalizado');
+assert.match(V.validateCssStructure('.hero { color: red;')||'',/Falta cerrar/);
 assert.equal(V.validateCssSource('/* comentario con } */ .hero { color: red; }'),null);
 assert.match(V.validateCssSource('.hero { color: red;')||'',/Falta cerrar/);
 assert.match(V.validateCssSource('.hero { content: "sin cerrar; }')||'',/cadena CSS sin cerrar/);
