@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bot, Check, ChevronRight, CodeXml, Download, FileArchive, FileCode2,
+import { ArrowLeft, Bot, Braces, Check, ChevronRight, CodeXml, Download, FileArchive, FileCode2,
   FilePlus2, FileUp, FolderOpen, Globe, LoaderCircle, Monitor, Paintbrush, Redo2, Tablet,
-  Save, Smartphone, Sparkles, Undo2, X, Copy, Trash2, ArrowUp, ArrowDown, ImagePlus, Link2, Layers3, Move, SlidersHorizontal, Search, MousePointer2, SquarePlus, Play, RotateCcw } from 'lucide-react';
+  Save, Smartphone, Sparkles, Undo2, X, Copy, Trash2, ArrowUp, ArrowDown, ImagePlus, Link2, Layers3, Move, SlidersHorizontal, Search, MousePointer2, SquarePlus, Play, RotateCcw, Shapes } from 'lucide-react';
 import { parseColorCode } from '@/lib/color-codes';
 import {cloudListSites,cloudLoadSite,cloudSaveSite,type CloudSiteSummary} from '@/lib/studio-cloud';
 import { AgentSetup, type LinkedAgent } from './agent-setup';
 import { SectionExplorer, type SectionAction } from './section-explorer';
 import { BrandLockup } from './brand-lockup';
 import { PropertyPanel, type ElementInfo } from './property-panel';
+import { SymbolLibrary } from './symbol-library';
+import { CssCodeEditor } from './css-code-editor';
+import type { SymbolEntry } from '@/lib/symbols';
 import { CanvasMenu, type CanvasCommand } from './canvas-menu';
 import { SeoPanel } from './seo-panel';
 import { AgentLibrary } from './agent-library';
@@ -18,7 +21,8 @@ import { ParkedItem, type Parked } from './parked-item';
 import { InsertPanel, BLOCK_MIME, SECTION_MIME } from './insert-panel';
 import { computeDrop, showIndicator, hideIndicator, drawHandles, clearHandles } from './canvas-interactions';
 import { blockById, isSectionBlock, instantiateBlock } from '@/lib/canvas-blocks';
-import { EDITABLE_STYLE_PROPS, copyElement, duplicateElement, isTextEditable, moveElement, parentIndex, pasteElement, removeElement, setAttributes, setFont, setInlineContent, setStyles, toggleHidden, groupElements, ungroupElement, insertSnippet, moveElementTo, canContain, writeSeo, type EditResult } from '@/lib/element-editing';
+import { EDITABLE_STYLE_PROPS, copyElement, duplicateElement, isTextEditable, moveElement, parentIndex, pasteElement, removeElement, setAttributes, setFont, setInlineContent, setStyles, toggleHidden, groupElements, ungroupElement, insertSnippet, moveElementTo, canContain, writeSeo, replaceInlineSymbol, resolveSymbolTarget, type EditResult } from '@/lib/element-editing';
+import { validateCssSource } from '@/lib/css-validation';
 import { ThemeToggle } from './theme-toggle';
 import { addSection, duplicateSection, ensureSectionKeys, listSections, moveSection, removeSection, renameSection, sectionForIndex } from '@/lib/html-sections';
 import { starterHtml } from '@/lib/starter-web';
@@ -247,7 +251,8 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   const [selectedValues,setSelectedValues]=useState({text:'',color:'',background:'',fontSize:'',href:'',alt:'',width:'',height:'',padding:'',margin:'',radius:'',fontWeight:'',fontFamily:'',textAlign:'',posX:'0',posY:'0'});
   const [explorerOpen,setExplorerOpen]=useState(false);
   const [inspectorOpen,setInspectorOpen]=useState(false);
-  const [inspectorTab,setInspectorTab]=useState<'properties'|'image'>('properties');
+  const [inspectorTab,setInspectorTab]=useState<'properties'|'image'|'symbol'>('properties');
+  const [symbolQuery,setSymbolQuery]=useState('');
   const pendingSectionRef=useRef<string|null>(null);
   const pendingIndexRef=useRef<number|null>(null);
   // Selección múltiple (Mayús + clic): índices adicionales a la selección principal.
@@ -347,6 +352,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   siteRef.current=site;
   const preview=useMemo(()=>site?safePreview(site):null,[site]);
   const imageTarget=useMemo(()=>site&&selected!==null?resolveImageTarget(site,selected):null,[site,selected]);
+  const symbolTarget=useMemo(()=>site&&selected!==null?resolveSymbolTarget(site.html,selected):null,[site,selected]);
   const [imagePreviewUrl,setImagePreviewUrl]=useState('');
   useEffect(()=>{
     const bytes=imageTarget?.assetKey&&site?site.assets[imageTarget.assetKey]:undefined;
@@ -455,18 +461,21 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
     else setDraftCode(strFromU8(site.assets[file]||new Uint8Array()));
   };
   /** Aplica el contenido de la pestaña de código abierta. */
-  const applyCode=()=>{
-    if(!site)return;
-    if(codeFile==='__html__'){if(draftHtml!==site.html)changeHtml(draftHtml);return;}
+  const applyCode=():boolean=>{
+    if(!site)return false;
+    if(codeFile==='__html__'){if(draftHtml!==site.html)changeHtml(draftHtml);return true;}
     if(codeFile===PAGE_CSS){
-      if(draftCode===readPageCss(site.html))return;
-      changeHtml(setPageCss(site.html,draftCode));setNotice('Estilos propios de la página aplicados.');return;
+      const error=validateCssSource(draftCode);
+      if(error){setNotice(error);return false;}
+      if(draftCode!==readPageCss(site.html)){changeHtml(setPageCss(site.html,draftCode));setNotice('CSS personalizado aplicado al proyecto.');}
+      return true;
     }
     if(codeFile===PAGE_JS){
-      if(draftCode===readPageJs(site.html))return;
-      changeHtml(setPageJs(site.html,draftCode));setNotice('Script propio guardado. Pruébalo con «En vivo».');return;
+      if(draftCode!==readPageJs(site.html)){changeHtml(setPageJs(site.html,draftCode));setNotice('Script propio guardado. Pruébalo con «En vivo».');}
+      return true;
     }
     if(draftCode!==strFromU8(site.assets[codeFile]||new Uint8Array())){changeAsset(codeFile,draftCode);setNotice(codeFile+' actualizado.');}
+    return true;
   };
   async function importFile(file:File){
     setBusy(true);setFileError('');
@@ -622,8 +631,14 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
         attrs:{href:element.getAttribute('href')||'',target:element.getAttribute('target')||'',alt:element.getAttribute('alt')||'',
           id:element.id||'',title:element.getAttribute('title')||'',ariaLabel:element.getAttribute('aria-label')||''}});
     }catch{setElementInfo(null);}
-    const photoTarget=siteRef.current?resolveImageTarget(siteRef.current,index):null;
-    if(photoTarget&&(photoTarget.kind==='item'||photoTarget.kind==='section')){
+    const currentSite=siteRef.current;
+    const iconTarget=currentSite?resolveSymbolTarget(currentSite.html,index):null;
+    const photoTarget=currentSite?resolveImageTarget(currentSite,index):null;
+    if(iconTarget){
+      setInspectorTab('symbol');
+      setInspectorOpen(true);
+      setSymbolQuery('');
+    }else if(photoTarget&&(photoTarget.kind==='item'||photoTarget.kind==='section')){
       setInspectorTab('image');
       setInspectorOpen(true);
     }else setInspectorTab('properties');
@@ -1113,6 +1128,11 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
       setNotice('Fotografía eliminada de «'+target.label+'». Puedes deshacer el cambio.');
     }catch(error){setNotice(error instanceof Error?error.message:'No se pudo eliminar la fotografía.');}
   }
+  function replaceSelectedSymbol(entry:SymbolEntry){
+    if(!site||selected===null)return;
+    tryEdit(()=>replaceInlineSymbol(site.html,selected,entry),
+      'Símbolo sustituido por «'+entry.name.replace(/-/g,' ')+'». Se han conservado sus dimensiones, color y estilo.');
+  }
   const patch=(changes:{text?:string;color?:string;background?:string;fontSize?:string;href?:string;alt?:string;width?:string;height?:string;padding?:string;margin?:string;radius?:string;fontWeight?:string;fontFamily?:string;textAlign?:string;moveX?:number;moveY?:number})=>{
     if(!site||selected===null)return;
     try{
@@ -1259,7 +1279,8 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
             <button onClick={()=>{setView('preview');setTool('select');}} aria-pressed={view==='preview'&&tool==='select'} title="Seleccionar y editar (V)" className={'inline-flex h-[28px] items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition '+(view==='preview'&&tool==='select'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}><MousePointer2 size={13}/> Seleccionar</button>
             <button onClick={()=>{setView('preview');setTool('move');}} aria-pressed={view==='preview'&&tool==='move'} title="Arrastrar para reordenar · Alt+arrastrar para desplazar libremente (M)" className={'inline-flex h-[28px] items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition '+(view==='preview'&&tool==='move'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}><Move size={13}/> Mover</button>
             <button onClick={()=>{setView('preview');setTool('insert');}} aria-pressed={view==='preview'&&tool==='insert'} title="Insertar textos, botones, formas, imágenes y secciones (I)" className={'inline-flex h-[28px] items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition '+(view==='preview'&&tool==='insert'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}><SquarePlus size={13}/> Insertar</button>
-            <button onClick={()=>{setView('code');setTool('select');openCodeFile(codeFile);}} aria-pressed={view==='code'} title="Código HTML" className={'inline-flex h-[28px] items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition '+(view==='code'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}><CodeXml size={13}/> Código</button>
+            <button onClick={()=>{setView('code');setTool('select');openCodeFile(PAGE_CSS);}} aria-pressed={view==='code'&&codeFile===PAGE_CSS} title="Abrir editor de CSS personalizado" className={'inline-flex h-[28px] items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition '+(view==='code'&&codeFile===PAGE_CSS?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}><Braces size={13}/> CSS</button>
+            <button onClick={()=>{setView('code');setTool('select');openCodeFile(codeFile==='__page__'?'__html__':codeFile);}} aria-pressed={view==='code'&&codeFile!==PAGE_CSS} title="Código HTML y archivos del proyecto" className={'inline-flex h-[28px] items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition '+(view==='code'&&codeFile!==PAGE_CSS?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}><CodeXml size={13}/> Código</button>
           </div>
           {tool==='move'&&view==='preview'&&<div role="group" aria-label="Modo de mover" className="flex items-center gap-0.5 rounded-lg border border-brand/40 bg-brandsoft p-[3px]">
             <button onClick={()=>setMoveStyle('ordenar')} aria-pressed={moveStyle==='ordenar'} title="Encaja el elemento entre otros (mantiene la web responsive)"
@@ -1359,30 +1380,44 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
               className="scroll-subtle min-h-0 flex-1 resize-none bg-[#10141c] p-5 font-mono text-[12px] leading-6 text-[#dae6ff] outline-none"
               spellCheck={false} value={draftHtml} onChange={e=>setDraftHtml(e.target.value)}
               onBlur={()=>{if(draftHtml!==site.html)changeHtml(draftHtml)}}/>
-            :<textarea aria-label={codeFile===PAGE_CSS?'Estilos propios de la página':codeFile===PAGE_JS?'Script propio de la página':'Editor del archivo '+codeFile}
+            :codeFile===PAGE_CSS?<CssCodeEditor value={draftCode} onChange={setDraftCode} error={validateCssSource(draftCode)}/>
+            :<textarea aria-label={codeFile===PAGE_JS?'Script propio de la página':'Editor del archivo '+codeFile}
               className="scroll-subtle min-h-0 flex-1 resize-none bg-[#10141c] p-5 font-mono text-[12px] leading-6 text-[#dae6ff] outline-none"
               spellCheck={false} value={draftCode} onChange={e=>setDraftCode(e.target.value)} onBlur={applyCode}
-              placeholder={codeFile===PAGE_CSS?'/* Tus reglas: se aplican por encima del CSS original */\n.hero h1 { letter-spacing: -0.02em; }':
-                codeFile===PAGE_JS?'// Tu JavaScript: se ejecuta al cargar la página publicada\ndocument.querySelectorAll(\'section\').forEach(s => s.classList.add(\'visible\'));':''}/>}
+              placeholder={codeFile===PAGE_JS?'// Tu JavaScript: se ejecuta al cargar la página publicada\ndocument.querySelectorAll(\'section\').forEach(s => s.classList.add(\'visible\'));':''}/>}
             <div className="flex items-center justify-between gap-2 border-t border-stroke p-2">
-              <span className="text-[10.5px] text-faint">Se aplica al salir del editor o con el botón. Ctrl+Z deshace.</span>
-              <button onClick={()=>{applyCode();setView('preview')}} className={primary}><Check size={14}/> Aplicar y ver resultado</button>
+              <span className="text-[10.5px] text-faint">{codeFile===PAGE_CSS?'CSS personalizado del proyecto · se guarda con la web y se incluye en el ZIP.':'Se aplica al salir del editor o con el botón. Ctrl+Z deshace.'}</span>
+              <button onClick={()=>{if(applyCode())setView('preview')}} disabled={codeFile===PAGE_CSS&&Boolean(validateCssSource(draftCode))} className={primary}><Check size={14}/> Aplicar y ver resultado</button>
             </div>
           </>}
         </div>
         <aside aria-label="Inspector de elementos" className={'scroll-subtle w-[278px] shrink-0 overflow-y-auto border-l border-stroke bg-panel p-4 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-[70] max-lg:w-[min(320px,88vw)] max-lg:shadow-2xl '+(inspectorOpen?'':'max-lg:hidden')}>
-          <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-[12px] font-semibold">{inspectorTab==='image'?<ImagePlus size={14} className="text-brand"/>:<SlidersHorizontal size={14} className="text-brand"/>} {inspectorTab==='image'?'Imagen':'Propiedades'}</h2>
+          <div className="mb-3 flex items-center justify-between"><h2 className="flex items-center gap-2 text-[12px] font-semibold">{inspectorTab==='image'?<ImagePlus size={14} className="text-brand"/>:inspectorTab==='symbol'?<Shapes size={14} className="text-brand"/>:<SlidersHorizontal size={14} className="text-brand"/>} {inspectorTab==='image'?'Imagen':inspectorTab==='symbol'?'Símbolo':'Propiedades'}</h2>
             <button type="button" onClick={()=>setInspectorOpen(false)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-mist hover:bg-raised lg:hidden" aria-label="Cerrar inspector"><X size={15}/></button></div>
-          <p className="mb-4 text-[11px] leading-5 text-mist">{inspectorTab==='image'?'Asocia una fotografía al plato, sección o elemento seleccionado.':'Selecciona un elemento en la web o en el Explorador. Cada cambio se aplica al HTML real y se puede deshacer.'}</p>
+          <p className="mb-4 text-[11px] leading-5 text-mist">{inspectorTab==='image'?'Asocia una fotografía al plato o sección.':inspectorTab==='symbol'?'Sustituye el icono seleccionado sin alterar su caja ni su estilo.':'Selecciona un elemento en la web o en el Explorador. Cada cambio se puede deshacer.'}</p>
           {selected===null?<div className="rounded-lg border border-dashed border-stroke p-4 text-[11px] text-faint">Nada seleccionado.</div>:<>
             <div className="mb-2 rounded-lg border border-stroke bg-elevated px-3 py-2 font-mono text-[10px] text-mist">{activeLayer?.tag||'Nodo'} · #{selected}{activeSection?' · '+activeSection.name:''}</div>
-            <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg border border-stroke bg-elevated p-1" role="tablist" aria-label="Panel del elemento">
+            <div className={'mb-3 grid gap-1 rounded-lg border border-stroke bg-elevated p-1 '+(symbolTarget?'grid-cols-3':'grid-cols-2')} role="tablist" aria-label="Panel del elemento">
               <button type="button" role="tab" aria-selected={inspectorTab==='properties'} onClick={()=>setInspectorTab('properties')}
                 className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='properties'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Propiedades</button>
               <button type="button" role="tab" aria-selected={inspectorTab==='image'} onClick={()=>setInspectorTab('image')}
                 className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='image'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Imagen</button>
+              {symbolTarget&&<button type="button" role="tab" aria-selected={inspectorTab==='symbol'} onClick={()=>setInspectorTab('symbol')}
+                className={'rounded-md px-2 py-2 text-[11px] font-medium transition '+(inspectorTab==='symbol'?'bg-panel text-ink shadow-sm':'text-mist hover:text-ink')}>Símbolo</button>}
             </div>
-            {inspectorTab==='image'?<div className="space-y-3">
+            {inspectorTab==='symbol'&&symbolTarget?<div className="flex h-[500px] min-h-[360px] flex-col gap-2">
+              <div className="rounded-lg border border-stroke bg-elevated px-3 py-2">
+                <p className="text-[10px] font-semibold text-ink">Icono actual</p>
+                <p className="mt-1 truncate text-[11px] text-mist">{symbolTarget.name}</p>
+                <p className="mt-1 text-[10px] text-faint">Caja original: {symbolTarget.width||'CSS'} × {symbolTarget.height||'CSS'}</p>
+              </div>
+              <label className="relative block shrink-0"><Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"/>
+                <input value={symbolQuery} onChange={e=>setSymbolQuery(e.target.value)} placeholder="Buscar símbolo: casa, fuego, mapa…" aria-label="Buscar símbolo para sustituir"
+                  className="w-full rounded-md border border-stroke bg-elevated py-1.5 pl-8 pr-2 text-[11px] text-ink outline-none focus:border-brand"/></label>
+              <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-stroke">
+                <SymbolLibrary query={symbolQuery} mode="replace" onReplace={replaceSelectedSymbol} onInsert={()=>{}} onDrag={()=>{}}/>
+              </div>
+            </div>:inspectorTab==='image'?<div className="space-y-3">
               <div className="rounded-lg border border-stroke bg-elevated p-3">
                 <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold"><ImagePlus size={14} className="text-brand"/>{imageTarget?.kind==='item'?'Fotografía del plato':imageTarget?.kind==='section'?'Fotografía de la sección':'Fotografía del elemento'}</div>
                 <p className="text-[11px] leading-5 text-mist">{imageTarget?.label||'Elemento seleccionado'}</p>
@@ -1399,7 +1434,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
               </label>
               {imageTarget?.managedImage&&<button type="button" className={btn+' w-full justify-center text-red-400'} onClick={removeImage}><Trash2 size={13}/> Eliminar fotografía</button>}
               <p className="text-[10px] leading-5 text-faint">PNG, JPG, GIF o WebP · máximo 5 MB. La foto se inserta en el plato o sección seleccionada, se incluye en el ZIP y puedes deshacer el cambio.</p>
-            </div>:elementInfo&&elementInfo.index===selected?<PropertyPanel info={elementInfo}
+            </div>:inspectorTab!=='symbol'&&elementInfo&&elementInfo.index===selected?<PropertyPanel info={elementInfo}
               onStyles={styles=>tryEdit(()=>setStyles(site.html,elementInfo.index,styles),'Estilo aplicado al elemento.')}
               onFont={family=>tryEdit(()=>setFont(site.html,elementInfo.index,family),'Tipografía aplicada: '+family.split(',')[0].replace(/["']/g,'')+'.')}
               onPreview={styles=>{const el=selectedRef.current;if(!el)return;for(const [prop,value] of Object.entries(styles))el.style.setProperty(prop,value);}}
