@@ -96,6 +96,15 @@ Node.js requerido: 20.9 o superior. El servidor local abre en `http://localhost:
 - Los recursos añadidos se incorporan al ZIP del sitio.
 - No se publican por sí solos ni modifican la web de producción.
 
+## Estado de verificación
+
+La ejecución de GitHub Actions [44112805790](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44112805790) terminó correctamente en el commit `f8f6e3736401c7087f8e63358804ae75207d846c`:
+- `npm test`: correcto, incluidas las pruebas sobre el HTML real de El Refugio.
+- `npm run build`: correcto.
+- `npm run typecheck`: correcto.
+
+El workflow temporalmente se amplió para ejecutar la validación de esta rama y después se restauraron sus filtros originales en el commit `e1ae5c3eb7541cc0795a1785f12c8a5d8ea29f70`. No se ha desplegado ningún Worker.
+
 ## Pruebas con El Refugio de Chilla
 
 Para evitar tocar la web original, se añadió una copia estática de su HTML:
