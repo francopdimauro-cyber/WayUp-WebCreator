@@ -430,14 +430,17 @@ export function attachLocalImage(site:SiteBundle,index:number,data:Uint8Array):S
   image.setAttribute('src',file);
   image.removeAttribute('srcset');
   image.removeAttribute('sizes');
-  // Si la imagen estaba dentro de <picture>, sus <source srcset> podrían seguir mostrando la foto anterior.
+  // Mantiene <picture> pero actualiza sus variantes para que no reaparezca la imagen anterior.
   if(existing?.parentElement?.tagName==='PICTURE'){
-    for(const source of Array.from(existing.parentElement.querySelectorAll(':scope > source')))source.remove();
+    for(const source of Array.from(existing.parentElement.querySelectorAll(':scope > source'))){
+      source.setAttribute('srcset',file);
+      source.removeAttribute('type');
+    }
   }
   image.setAttribute('data-wayup-photo','true');
   image.setAttribute('data-wayup-photo-kind',info.kind);
   if(!existing||!image.getAttribute('alt')?.trim())image.setAttribute('alt','Fotografía de '+info.label);
-  if(!image.hasAttribute('loading'))image.setAttribute('loading','lazy');
+  if(!image.hasAttribute('loading'))image.setAttribute('loading',image.getAttribute('fetchpriority')==='high'?'eager':'lazy');
   if(!existing){
     if(logo){
       image.style.cssText='display:inline-block;height:44px;width:auto;max-width:220px;vertical-align:middle;object-fit:contain;margin-right:10px';
