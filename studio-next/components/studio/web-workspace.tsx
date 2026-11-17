@@ -347,13 +347,15 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
   siteRef.current=site;
   const preview=useMemo(()=>site?safePreview(site):null,[site]);
   const imageTarget=useMemo(()=>site&&selected!==null?resolveImageTarget(site,selected):null,[site,selected]);
-  const imagePreviewUrl=useMemo(()=>{
+  const [imagePreviewUrl,setImagePreviewUrl]=useState('');
+  useEffect(()=>{
     const bytes=imageTarget?.assetKey&&site?site.assets[imageTarget.assetKey]:undefined;
-    if(!bytes||!imageTarget?.imagePath)return '';
+    if(!bytes||!imageTarget?.imagePath){setImagePreviewUrl('');return;}
     const copy=new Uint8Array(bytes.length);copy.set(bytes);
-    return URL.createObjectURL(new Blob([copy.buffer],{type:assetMime(imageTarget.imagePath)}));
+    const url=URL.createObjectURL(new Blob([copy.buffer],{type:assetMime(imageTarget.imagePath)}));
+    setImagePreviewUrl(url);
+    return ()=>URL.revokeObjectURL(url);
   },[site,imageTarget?.assetKey,imageTarget?.imagePath]);
-  useEffect(()=>()=>{if(imagePreviewUrl)URL.revokeObjectURL(imagePreviewUrl);},[imagePreviewUrl]);
   const liveHtml=useMemo(()=>{if(!live||!site)return '';try{return livePreview(site);}catch{return '';}},[live,site]);
   useEffect(()=>{if(!live)return;const k=(e:KeyboardEvent)=>{if(e.key==='Escape')setLive(false);};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k);},[live]);
   const previewHead=useMemo(()=>(preview?.html.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1]||''),[preview?.html]);
