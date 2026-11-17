@@ -120,12 +120,12 @@ assert.match(F.safePreview(F.siteFromHtml(E.setFont(HTML,p,'Lora').html,'P')).ht
 
 
 // Fotos asociadas a platos y secciones: contenedor correcto, sustitución, borrado y ZIP.
-const MENU_HTML=\`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Carta de prueba</title></head><body>
+const MENU_HTML=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Carta de prueba</title></head><body>
 <nav><ul><li><a href="#carta">Carta</a></li></ul></nav>
 <main><section id="carta" data-wc-section="carta"><h2 id="carta-title">Para empezar</h2>
 <ul><li class="dish-row"><span class="dish-name">Croquetas de carrilleras</span><span class="price">8 €</span></li>
 <li class="dish-row"><span class="dish-name">Carpaccio de ternera</span><span class="price">12 €</span></li></ul>
-</section></main></body></html>\`;
+</section></main></body></html>`;
 const menuSite=F.siteFromHtml(MENU_HTML,'Carta de prueba');
 const dishIndex=idx(MENU_HTML,'.dish-name');
 const dishTarget=F.resolveImageTarget(menuSite,dishIndex);
