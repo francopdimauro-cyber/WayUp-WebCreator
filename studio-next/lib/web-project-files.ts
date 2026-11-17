@@ -333,7 +333,7 @@ export type ImageTargetInfo={
   hasImage:boolean;
   managedImage:boolean;
 };
-const MENU_ITEM_SELECTOR='li,tr,[role="listitem"],[data-wc-menu-item],[data-menu-item],[class*="menu-item"],[class*="menu_item"],[class*="dish"],[class*="plato"],[class*="carta-item"]';
+const MENU_ITEM_SELECTOR='li,tr,[role="listitem"],[data-wc-menu-item],[data-menu-item]';
 function imageAssetKey(site:SiteBundle,src:string):string|null{
   const raw=src.trim();
   if(!raw||/^(?:[a-z]+:|\/\/|#)/i.test(raw))return null;
@@ -358,6 +358,14 @@ export function resolveImageTarget(site:SiteBundle,index:number):ImageTargetInfo
   const selected=nodes[index];
   if(!selected)return null;
   let item=selected.closest<HTMLElement>(MENU_ITEM_SELECTOR);
+  if(!item){
+    let candidate:HTMLElement|null=selected;
+    while(candidate&&candidate!==doc.body){
+      const classes=(candidate.getAttribute('class')||'').toLowerCase().split(/\\s+/);
+      if(classes.some(name=>/(^|[-_])(menu-item|dish|plato|carta-item)([-_]|$)/.test(name))){item=candidate;break;}
+      candidate=candidate.parentElement as HTMLElement|null;
+    }
+  }
   // Los <li> de navegación no son platos ni productos.
   if(item&&item.closest('nav,header'))item=null;
   const isSectionNode=selected.matches('[data-wc-section],section,main,header,footer');
@@ -389,7 +397,7 @@ export function resolveImageTarget(site:SiteBundle,index:number):ImageTargetInfo
   if(targetIndex<0)return null;
   let image:HTMLElement|null=selected.tagName==='IMG'?selected:null;
   if(!image&&target.tagName==='IMG')image=target;
-  if(!image)image=target.querySelector<HTMLElement>('img[data-wayup-photo],img[alt="Imagen"][src^="wayup-media/"]');
+  if(!image)image=target.querySelector<HTMLElement>(':scope > img[data-wayup-photo],:scope > img[alt="Imagen"][src^="wayup-media/"]');
   const imagePath=image?.getAttribute('src')||'';
   const imageAlt=image?.getAttribute('alt')||'';
   const imageIndex=image?nodes.indexOf(image):-1;
