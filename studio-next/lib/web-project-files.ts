@@ -361,7 +361,7 @@ export function resolveImageTarget(site:SiteBundle,index:number):ImageTargetInfo
   if(!item){
     let candidate:HTMLElement|null=selected;
     while(candidate&&candidate!==doc.body){
-      const classes=(candidate.getAttribute('class')||'').toLowerCase().split(/\\s+/);
+      const classes=(candidate.getAttribute('class')||'').toLowerCase().split(/\s+/);
       if(classes.some(name=>/(^|[-_])(menu-item|dish|plato|carta-item)([-_]|$)/.test(name))){item=candidate;break;}
       candidate=candidate.parentElement as HTMLElement|null;
     }
