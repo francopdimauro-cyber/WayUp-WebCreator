@@ -84,6 +84,7 @@ Este bloque resume el comportamiento que Claude debe preservar y probar al conti
 - También detecta el botón padre cuando se selecciona su texto o un elemento interior.
 - Aparece la acción **CAMBIAR BOTÓN**. Al pulsarla se abre la galería existente de 21 estilos, con familias y tamaños.
 - Se aplican estilos al botón real mediante `setStyles` y entran en el historial.
+- La galería no fuerza `display: inline-block`: respeta el layout que ya tenga el botón (por ejemplo `flex` o `inline-flex`) para no romper iconos ni alineaciones internas.
 - El texto, el `href`, el destino y el comportamiento del botón se conservan. Esta acción cambia el aspecto, no sustituye el destino ni convierte automáticamente un enlace en un formulario.
 - La resolución está en `lib/element-editing.ts` (`resolveButtonTarget`); la galería, en `components/studio/button-styles.tsx`.
 
@@ -123,12 +124,12 @@ Este bloque resume el comportamiento que Claude debe preservar y probar al conti
 
 ## Estado de verificación
 
-La ejecución de GitHub Actions [44112805790](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44112805790) terminó correctamente en el commit `f8f6e3736401c7087f8e63358804ae75207d846c`:
-- `npm test`: correcto, incluidas las pruebas sobre el HTML real de El Refugio.
+La ejecución más reciente de GitHub Actions [44113518541](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44113518541) terminó correctamente en el commit `8949037903b29e8a3d17534fe225725a1b0c9882`:
+- `npm test`: correcto, incluidas las pruebas sobre el HTML real de El Refugio y la conservación del layout del botón.
 - `npm run build`: correcto.
 - `npm run typecheck`: correcto.
 
-El workflow temporalmente se amplió para ejecutar la validación de esta rama y después se restauraron sus filtros originales en el commit `e1ae5c3eb7541cc0795a1785f12c8a5d8ea29f70`. No se ha desplegado ningún Worker.
+**Incidencia intermedia ya corregida:** la ejecución [44112509370](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44112509370), sobre el commit `72208e0e94bc81f246ebc8097ee19bb4a247cb65`, falló en `npm test` por un `SyntaxError` causado por backticks escapados en la plantilla HTML de la prueba `picture`. Se corrigió el fixture y la sintaxis; las ejecuciones posteriores pasaron. No se ha desplegado ningún Worker.
 
 ## Pruebas con El Refugio de Chilla
 
