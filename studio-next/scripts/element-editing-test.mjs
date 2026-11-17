@@ -191,6 +191,9 @@ assert.equal(iconSvg.getAttribute('stroke-width'),'1.5','Conserva el grosor de t
 assert.equal(iconSvg.getAttribute('stroke'),'currentColor','Conserva el color heredado');
 assert.equal(iconSvg.querySelectorAll('path').length,4,'Sustituye la geometría completa');
 assert.equal(E.resolveSymbolTarget(replacedIcon.html,iconIndex)?.name,'house-plus');
+const fittedIcon=E.replaceInlineSymbol(ICON_HTML,iconIndex,iconEntry,'translate(1.2500 2.5000) scale(0.7500)');
+assert.equal(doc(fittedIcon.html).querySelector('.feature-icon > svg > g').getAttribute('transform'),'translate(1.2500 2.5000) scale(0.7500)',
+  'La geometría nueva se escala y centra en el tamaño visual del símbolo de destino');
 const multiIconHtml=`<!DOCTYPE html><html><head></head><body><button><svg width="20" height="20" viewBox="0 0 24 24"><path d="M1 1"/></svg><svg width="20" height="20" viewBox="0 0 24 24"><path d="M2 2"/></svg></button></body></html>`;
 assert.equal(E.resolveSymbolTarget(multiIconHtml,idx(multiIconHtml,'button')),null,'No ofrece sustitución si el contenedor tiene varios SVG');
 
