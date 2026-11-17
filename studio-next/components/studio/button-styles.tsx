@@ -24,7 +24,7 @@ export function presetStyles(id: string): Record<string, string> {
     'border-color': p.border || '',
     'box-shadow': p.shadow ? SHADOW[p.shadow] : 'none',
     'text-decoration-line': p.id === 'subrayado' ? 'underline' : 'none',
-    display: 'inline-block',
+    // No forzar display: conserva la distribución interna (flex/inline-flex) y los iconos del botón original.
     'font-weight': '600',
   };
 }
