@@ -407,6 +407,7 @@ export function resolveImageTarget(site:SiteBundle,index:number):ImageTargetInfo
     (/^wayup-media\//.test(imagePath)&&imageAlt==='Imagen')));
   const heading=target.querySelector<HTMLElement>('h1,h2,h3,h4,h5,h6');
   const rawLabel=target.getAttribute('data-wc-name')||target.getAttribute('aria-label')||
+    (target.tagName==='IMG'?image?.getAttribute('alt'):'')||
     (kind==='section'?(heading?.textContent||target.id):target.textContent)||target.id||target.tagName;
   const label=(rawLabel||target.tagName).replace(/\s+/g,' ').trim().slice(0,72)||target.tagName.toLowerCase();
   return {index:targetIndex,kind,tag:target.tagName,label,imageIndex:imageIndex>=0?imageIndex:null,
@@ -427,10 +428,16 @@ export function attachLocalImage(site:SiteBundle,index:number,data:Uint8Array):S
   if(!safePath(file))throw Error('Ruta de recurso inválida.');
   const logo=['A','HEADER','NAV'].includes(target.tagName)||!!target.closest('header,nav');
   image.setAttribute('src',file);
+  image.removeAttribute('srcset');
+  image.removeAttribute('sizes');
+  // Si la imagen estaba dentro de <picture>, sus <source srcset> podrían seguir mostrando la foto anterior.
+  if(existing?.parentElement?.tagName==='PICTURE'){
+    for(const source of Array.from(existing.parentElement.querySelectorAll(':scope > source')))source.remove();
+  }
   image.setAttribute('data-wayup-photo','true');
   image.setAttribute('data-wayup-photo-kind',info.kind);
   if(!existing||!image.getAttribute('alt')?.trim())image.setAttribute('alt','Fotografía de '+info.label);
-  image.setAttribute('loading','lazy');
+  if(!image.hasAttribute('loading'))image.setAttribute('loading','lazy');
   if(!existing){
     if(logo){
       image.style.cssText='display:inline-block;height:44px;width:auto;max-width:220px;vertical-align:middle;object-fit:contain;margin-right:10px';
