@@ -159,8 +159,9 @@ export function symbolFitTransform(entry:SymbolEntry,targetSvg:SVGSVGElement):st
     probe.style.cssText='position:absolute;left:-10000px;top:-10000px;visibility:hidden;overflow:visible;pointer-events:none';
     const group=symbolGeometry(doc,entry);
     probe.appendChild(group);doc.body.appendChild(probe);
-    const newBox=(group as unknown as SVGGraphicsElement).getBBox();
-    probe.remove();
+    let newBox:DOMRect;
+    try{newBox=(group as unknown as SVGGraphicsElement).getBBox();}
+    finally{probe.remove();}
     if(newBox.width<=0||newBox.height<=0)return null;
     const target={x:(oldBox.x-vx)*24/vw,y:(oldBox.y-vy)*24/vh,width:oldBox.width*24/vw,height:oldBox.height*24/vh};
     const scale=Math.min(target.width/newBox.width,target.height/newBox.height);
