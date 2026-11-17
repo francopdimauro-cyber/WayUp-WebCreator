@@ -42,6 +42,31 @@ npm run build
 
 Node.js requerido: 20.9 o superior. El servidor local abre en `http://localhost:3000`. Estos comandos no despliegan nada.
 
+## Registro de cambios y traspaso — 17/11/2026
+
+Este bloque resume el comportamiento que Claude debe preservar y probar al continuar. La interfaz contextual vive en el Inspector derecho del Canvas; no modifica directamente la web publicada.
+
+### Acciones contextuales de selección
+- **Botones:** al seleccionar un botón HTML, `role="button"`, un input de tipo botón o un enlace CTA reconocido, aparece **CAMBIAR BOTÓN**. La acción abre la galería de estilos sin alterar el texto, el destino `href` ni el comportamiento.
+- **Imágenes:** al seleccionar una imagen individual o una imagen dentro de `picture`/`figure`, el Inspector abre la pestaña de imagen. La acción muestra **CAMBIAR IMAGEN** si ya existe una fotografía o **AÑADIR IMAGEN** si el objetivo compatible todavía no tiene ninguna.
+- **Platos y secciones:** la pestaña Imagen también se ofrece para filas de carta y secciones reconocidas, de modo que cada elemento pueda tener su propia fotografía.
+- **Símbolos:** al seleccionar un SVG individual reconocido, se abre la pestaña Símbolo para buscar y sustituir el glifo, conservando la caja, el color y el tamaño visual.
+- **Texto y enlaces:** se editan desde Propiedades. Los enlaces exponen su destino y opción de nueva pestaña; no existe todavía una acción contextual independiente llamada «CAMBIAR ENLACE».
+
+### Reglas para ampliar las acciones
+- Mantener la detección de botón padre cuando se selecciona un span, icono o texto interior.
+- No clasificar como botón cualquier enlace de navegación: reconocer semántica HTML, `role="button"`, clases CTA o estilos de botón existentes.
+- No convertir un enlace en un botón ni alterar su destino al cambiar su apariencia.
+- No sustituir una imagen por un duplicado: actualizar el recurso asociado y las fuentes responsive de `picture`.
+- No fijar tamaños SVG genéricos: medir y ajustar el área visible del glifo.
+- Mantener las operaciones en el HTML/proyecto de trabajo, con historial y exportación; no desplegar ni modificar producción.
+
+### Verificación más reciente
+- [GitHub Actions · ejecución 44113518541](https://github.com/francopdimauro-cyber/WayUp-WebCreator/actions/runs/44113518541): tests del editor, build Next.js y TypeScript completados correctamente.
+- Commit validado: `8949037903b29e8a3d17534fe225725a1b0c9882`.
+- PR #11: abierta, en borrador, no fusionada.
+- Revisión visual manual en navegador de las acciones contextuales: pendiente. La CI valida pruebas automatizadas, compilación y tipos; no debe presentarse como una prueba visual manual.
+
 ## Funciones implementadas
 
 ### 1. Canvas y edición segura
