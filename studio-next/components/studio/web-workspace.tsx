@@ -22,7 +22,7 @@ import { InsertPanel, BLOCK_MIME, SECTION_MIME } from './insert-panel';
 import { computeDrop, showIndicator, hideIndicator, drawHandles, clearHandles } from './canvas-interactions';
 import { blockById, isSectionBlock, instantiateBlock } from '@/lib/canvas-blocks';
 import { EDITABLE_STYLE_PROPS, copyElement, duplicateElement, isTextEditable, moveElement, parentIndex, pasteElement, removeElement, setAttributes, setFont, setInlineContent, setStyles, toggleHidden, groupElements, ungroupElement, insertSnippet, moveElementTo, canContain, writeSeo, replaceInlineSymbol, resolveSymbolTarget, symbolFitTransform, type EditResult } from '@/lib/element-editing';
-import { validateCssSource } from '@/lib/css-validation';
+import { validateCssSource, validateCssStructure } from '@/lib/css-validation';
 import { ThemeToggle } from './theme-toggle';
 import { addSection, duplicateSection, ensureSectionKeys, listSections, moveSection, removeSection, renameSection, sectionForIndex } from '@/lib/html-sections';
 import { starterHtml } from '@/lib/starter-web';
@@ -473,6 +473,10 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
     if(codeFile===PAGE_JS){
       if(draftCode!==readPageJs(site.html)){changeHtml(setPageJs(site.html,draftCode));setNotice('Script propio guardado. Pruébalo con «En vivo».');}
       return true;
+    }
+    if(/\.css$/i.test(codeFile)){
+      const error=validateCssStructure(draftCode);
+      if(error){setNotice(error);return false;}
     }
     if(draftCode!==strFromU8(site.assets[codeFile]||new Uint8Array())){changeAsset(codeFile,draftCode);setNotice(codeFile+' actualizado.');}
     return true;
@@ -1372,7 +1376,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
             </div>
           </>:<>
             <div role="tablist" aria-label="Archivos del proyecto" className="flex flex-wrap items-center gap-1 border-b border-stroke bg-panel px-3 py-2">
-              {[['__html__',site.entry],...cssFiles.map(f=>[f,f]),...jsFiles.map(f=>[f,f]),[PAGE_CSS,'Estilos propios'],[PAGE_JS,'Script propio']].map(([id,label])=>
+              {[['__html__',site.entry],...cssFiles.map(f=>[f,f]),...jsFiles.map(f=>[f,f]),[PAGE_CSS,'CSS personalizado'],[PAGE_JS,'Script propio']].map(([id,label])=>
                 <button key={id} role="tab" aria-selected={codeFile===id} onClick={()=>openCodeFile(id)}
                   className={'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-mono text-[11px] '+(codeFile===id?'bg-brandsoft text-brand':'text-mist hover:bg-elevated hover:text-ink')}>
                   <FileCode2 size={12}/>{label}</button>)}
@@ -1382,14 +1386,15 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
               className="scroll-subtle min-h-0 flex-1 resize-none bg-[#10141c] p-5 font-mono text-[12px] leading-6 text-[#dae6ff] outline-none"
               spellCheck={false} value={draftHtml} onChange={e=>setDraftHtml(e.target.value)}
               onBlur={()=>{if(draftHtml!==site.html)changeHtml(draftHtml)}}/>
-            :codeFile===PAGE_CSS?<CssCodeEditor value={draftCode} onChange={setDraftCode} error={validateCssSource(draftCode)}/>
+            :codeFile===PAGE_CSS||/\.css$/i.test(codeFile)?<CssCodeEditor value={draftCode} onChange={setDraftCode}
+              error={codeFile===PAGE_CSS?validateCssSource(draftCode):validateCssStructure(draftCode)}/>
             :<textarea aria-label={codeFile===PAGE_JS?'Script propio de la página':'Editor del archivo '+codeFile}
               className="scroll-subtle min-h-0 flex-1 resize-none bg-[#10141c] p-5 font-mono text-[12px] leading-6 text-[#dae6ff] outline-none"
               spellCheck={false} value={draftCode} onChange={e=>setDraftCode(e.target.value)} onBlur={applyCode}
               placeholder={codeFile===PAGE_JS?'// Tu JavaScript: se ejecuta al cargar la página publicada\ndocument.querySelectorAll(\'section\').forEach(s => s.classList.add(\'visible\'));':''}/>}
             <div className="flex items-center justify-between gap-2 border-t border-stroke p-2">
-              <span className="text-[10.5px] text-faint">{codeFile===PAGE_CSS?'CSS personalizado del proyecto · se guarda con la web y se incluye en el ZIP.':'Se aplica al salir del editor o con el botón. Ctrl+Z deshace.'}</span>
-              <button onClick={()=>{if(applyCode())setView('preview')}} disabled={codeFile===PAGE_CSS&&Boolean(validateCssSource(draftCode))} className={primary}><Check size={14}/> Aplicar y ver resultado</button>
+              <span className="text-[10.5px] text-faint">{codeFile===PAGE_CSS?'CSS personalizado: se añade al final sin sobrescribir los archivos originales.':/\.css$/i.test(codeFile)?'Editando el archivo CSS original del proyecto. Se guarda al aplicar.':'Se aplica al salir del editor o con el botón. Ctrl+Z deshace.'}</span>
+              <button onClick={()=>{if(applyCode())setView('preview')}} disabled={(codeFile===PAGE_CSS&&Boolean(validateCssSource(draftCode)))||(/\.css$/i.test(codeFile)&&Boolean(validateCssStructure(draftCode)))} className={primary}><Check size={14}/> Aplicar y ver resultado</button>
             </div>
           </>}
         </div>
