@@ -1,6 +1,6 @@
 'use client';
 import React,{useRef,useState,type ReactNode} from 'react';
-import {Braces,ChevronDown,Command,Lightbulb,AlertCircle,CheckCircle2} from 'lucide-react';
+import {Braces,ChevronDown,Lightbulb,AlertCircle,CheckCircle2} from 'lucide-react';
 
 type Props={value:string;onChange(value:string):void;error:string|null;label?:string};
 const PROPERTIES=[
@@ -72,7 +72,7 @@ export function CssCodeEditor({value,onChange,error,label='CSS personalizado'}:P
   };
   return <div className="flex min-h-0 flex-1 flex-col bg-[#10141c]">
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#151b26] px-4 py-2 text-[11px] text-[#b6c3d7]">
-      <span className="inline-flex items-center gap-2"><Braces size={14} className="text-[#91aaff]"/> CSS personalizado <span className="text-[#78869a]">· {value.length.toLocaleString('es-ES')} caracteres</span></span>
+      <span className="inline-flex items-center gap-2"><Braces size={14} className="text-[#91aaff]"/> {label} <span className="text-[#78869a]">· {value.length.toLocaleString('es-ES')} caracteres</span></span>
       <button type="button" onClick={()=>{setCompletionOpen(v=>!v);setCompletionFilter('');editor.current?.focus();}} className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-[10px] hover:bg-white/5" title="Sugerencias CSS · Ctrl+Espacio"><Lightbulb size={12}/> Autocompletar <kbd className="font-mono text-[#8392aa]">Ctrl+Espacio</kbd></button>
     </div>
     <div className="relative min-h-0 flex-1 overflow-hidden">
