@@ -1387,6 +1387,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
               spellCheck={false} value={draftHtml} onChange={e=>setDraftHtml(e.target.value)}
               onBlur={()=>{if(draftHtml!==site.html)changeHtml(draftHtml)}}/>
             :codeFile===PAGE_CSS||/\.css$/i.test(codeFile)?<CssCodeEditor value={draftCode} onChange={setDraftCode}
+              label={codeFile===PAGE_CSS?'CSS personalizado':'Archivo CSS · '+codeFile}
               error={codeFile===PAGE_CSS?validateCssSource(draftCode):validateCssStructure(draftCode)}/>
             :<textarea aria-label={codeFile===PAGE_JS?'Script propio de la página':'Editor del archivo '+codeFile}
               className="scroll-subtle min-h-0 flex-1 resize-none bg-[#10141c] p-5 font-mono text-[12px] leading-6 text-[#dae6ff] outline-none"
