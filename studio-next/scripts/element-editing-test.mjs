@@ -249,5 +249,16 @@ assert.equal(actualPhoto.getAttribute('alt'),originalPhotoAlt,'Conserva el texto
 assert.equal(actualPhoto.getAttribute('width'),'1440','Conserva dimensiones originales');
 assert.equal(actualPhoto.getAttribute('height'),'960','Conserva dimensiones originales');
 assert.equal(replacedRefugioDoc.querySelectorAll('img[data-wayup-photo]').length,1);
+const pictureHtml=\`<!DOCTYPE html><html><head></head><body><picture><source type="image/webp" srcset="old.webp"><img src="old.jpg" srcset="old-2x.jpg 2x" sizes="100vw" alt="Foto original" width="800" height="600"></picture></body></html>\`;
+const pictureSite=F.siteFromHtml(pictureHtml,'Picture');
+const pictureIndex=idx(pictureHtml,'picture img');
+const pictureReplaced=F.attachLocalImage(pictureSite,pictureIndex,testPng);
+const pictureDoc=doc(pictureReplaced.html);
+assert.equal(pictureDoc.querySelector('picture source').getAttribute('srcset'),pictureDoc.querySelector('picture img').getAttribute('src'));
+assert.equal(pictureDoc.querySelector('picture source').hasAttribute('type'),false,'No mantiene un MIME antiguo incompatible');
+assert.equal(pictureDoc.querySelector('picture img').hasAttribute('srcset'),false,'No deja un srcset antiguo que pueda ganar al nuevo src');
+assert.equal(pictureDoc.querySelector('picture img').getAttribute('sizes'),null);
+assert.equal(pictureDoc.querySelector('picture img').getAttribute('alt'),'Foto original');
+assert.equal(pictureDoc.querySelector('picture img').getAttribute('width'),'800');
 
-console.log('Correcto: edición HTML/CSS, iconos, estilos, imágenes, atributos, estructura y exportación.');
+console.log('Correcto: edición HTML/CSS, botones contextuales, imágenes reales, iconos, atributos, estructura y exportación.');
