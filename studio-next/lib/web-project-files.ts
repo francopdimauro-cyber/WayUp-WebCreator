@@ -396,8 +396,10 @@ export function resolveImageTarget(site:SiteBundle,index:number):ImageTargetInfo
   const targetIndex=nodes.indexOf(target);
   if(targetIndex<0)return null;
   let image:HTMLElement|null=selected.tagName==='IMG'?selected:null;
+  if(!image&&['PICTURE','FIGURE'].includes(selected.tagName))image=selected.querySelector<HTMLElement>('img');
   if(!image&&target.tagName==='IMG')image=target;
-  if(!image)image=target.querySelector<HTMLElement>(':scope > img[data-wayup-photo],:scope > img[alt="Imagen"][src^="wayup-media/"]');
+  if(!image&&['PICTURE','FIGURE'].includes(target.tagName))image=target.querySelector<HTMLElement>('img');
+  if(!image)image=target.querySelector<HTMLElement>(':scope > img,:scope > picture img,:scope > figure img,:scope > img[data-wayup-photo],:scope > img[alt="Imagen"][src^="wayup-media/"]');
   const imagePath=image?.getAttribute('src')||'';
   const imageAlt=image?.getAttribute('alt')||'';
   const imageIndex=image?nodes.indexOf(image):-1;
@@ -427,7 +429,7 @@ export function attachLocalImage(site:SiteBundle,index:number,data:Uint8Array):S
   image.setAttribute('src',file);
   image.setAttribute('data-wayup-photo','true');
   image.setAttribute('data-wayup-photo-kind',info.kind);
-  image.setAttribute('alt','Fotografía de '+info.label);
+  if(!existing||!image.getAttribute('alt')?.trim())image.setAttribute('alt','Fotografía de '+info.label);
   image.setAttribute('loading','lazy');
   if(!existing){
     if(logo){
