@@ -26,6 +26,8 @@ const HTML=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>We
 </body></html>`;
 const doc=html=>new DOMParser().parseFromString(html,'text/html');
 const idx=(html,sel)=>{const d=doc(html);return F.editableHtmlNodes(d).indexOf(d.querySelector(sel));};
+const REFUGIO_HTML=readFileSync(join(root,'test-fixtures','el-refugio','index.html'),'utf8');
+assert.match(REFUGIO_HTML,/<title>El Refugio de Chilla/,'Se utiliza el HTML real del restaurante como fixture de regresión');
 
 // Estilos válidos e inválidos
 const p=idx(HTML,'#p1');
@@ -208,5 +210,44 @@ assert.match(V.validateCssSource('.hero { content: "sin cerrar; }')||'',/cadena 
 assert.match(V.validateCssSource('@import url("https://example.com/a.css");')||'',/@import/);
 assert.match(V.validateCssSource('.hero { background: url(https://example.com/a.png); }')||'',/recursos externos/);
 assert.match(V.validateCssSource('<style>.hero{color:red}</style>')||'',/etiquetas <style>/);
+
+// Regresión con el HTML real de El Refugio de Chilla (snapshot de su repo, solo lectura).
+// Al hacer clic en el texto interior del botón de reserva, el editor debe resolver el botón padre.
+const refugioSubmitText=idx(REFUGIO_HTML,'.btn__label');
+const refugioSubmit=E.resolveButtonTarget(REFUGIO_HTML,refugioSubmitText);
+assert.ok(refugioSubmit,'Detecta el botón real de envío de reservas');
+assert.equal(refugioSubmit.tag,'BUTTON');
+assert.match(refugioSubmit.label,/Solicitar reserva/i);
+const refugioCtaIndex=idx(REFUGIO_HTML,'a.btn--primary[href="#reservas"]');
+const refugioCta=E.resolveButtonTarget(REFUGIO_HTML,refugioCtaIndex);
+assert.ok(refugioCta,'Detecta los enlaces CTA estilizados como botones');
+assert.equal(refugioCta.tag,'A');
+assert.match(refugioCta.label,/Reservar/i);
+assert.equal(E.resolveButtonTarget(REFUGIO_HTML,idx(REFUGIO_HTML,'.nav__links a')),null,
+  'No confunde los enlaces de navegación normales con botones');
+const styledRefugio=E.setStyles(REFUGIO_HTML,refugioCta.index,{'background-color':'#c8324b','border-radius':'999px'});
+const styledRefugioDoc=doc(styledRefugio.html);
+const styledRefugioCta=styledRefugioDoc.querySelector('a.btn--primary[href="#reservas"]');
+assert.equal(styledRefugioCta.getAttribute('href'),'#reservas','Cambiar el estilo no altera el destino del botón');
+assert.match(styledRefugioCta.getAttribute('style')||'',/background-color:\s*#c8324b/i);
+
+// Al seleccionar una imagen real del restaurante, el inspector debe resolverla como imagen sustituible.
+const refugioSite=F.siteFromHtml(REFUGIO_HTML,'El Refugio de Chilla');
+const refugioPhotoIndex=idx(REFUGIO_HTML,'img[src="img/plato-1.jpg"]');
+const refugioPhoto=F.resolveImageTarget(refugioSite,refugioPhotoIndex);
+assert.equal(refugioPhoto?.tag,'IMG');
+assert.equal(refugioPhoto?.kind,'element');
+assert.equal(refugioPhoto?.hasImage,true);
+const originalPhoto=doc(REFUGIO_HTML).querySelector('img[src="img/plato-1.jpg"]');
+const originalPhotoAlt=originalPhoto.getAttribute('alt');
+const replacedRefugioPhoto=F.attachLocalImage(refugioSite,refugioPhotoIndex,testPng);
+const replacedRefugioDoc=doc(replacedRefugioPhoto.html);
+const actualPhoto=replacedRefugioDoc.querySelector('img[data-wayup-photo]');
+assert.ok(actualPhoto,'La imagen original se sustituye, no se duplica');
+assert.match(actualPhoto.getAttribute('src')||'',/^wayup-media\//);
+assert.equal(actualPhoto.getAttribute('alt'),originalPhotoAlt,'Conserva el texto alternativo original');
+assert.equal(actualPhoto.getAttribute('width'),'1440','Conserva dimensiones originales');
+assert.equal(actualPhoto.getAttribute('height'),'960','Conserva dimensiones originales');
+assert.equal(replacedRefugioDoc.querySelectorAll('img[data-wayup-photo]').length,1);
 
 console.log('Correcto: edición HTML/CSS, iconos, estilos, imágenes, atributos, estructura y exportación.');
