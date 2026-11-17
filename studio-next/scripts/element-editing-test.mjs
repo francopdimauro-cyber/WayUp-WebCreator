@@ -118,4 +118,49 @@ assert.equal(doc(r.html).querySelectorAll('link[data-wc-font]').length,0);
 assert.throws(()=>E.setFont(HTML,p,'x"><script>'),/no válido/);
 assert.match(F.safePreview(F.siteFromHtml(E.setFont(HTML,p,'Lora').html,'P')).html,/fonts\.googleapis\.com/,'La vista previa conserva Google Fonts');
 
+
+// Fotos asociadas a platos y secciones: contenedor correcto, sustitución, borrado y ZIP.
+const MENU_HTML=\`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Carta de prueba</title></head><body>
+<nav><ul><li><a href="#carta">Carta</a></li></ul></nav>
+<main><section id="carta" data-wc-section="carta"><h2 id="carta-title">Para empezar</h2>
+<ul><li class="dish-row"><span class="dish-name">Croquetas de carrilleras</span><span class="price">8 €</span></li>
+<li class="dish-row"><span class="dish-name">Carpaccio de ternera</span><span class="price">12 €</span></li></ul>
+</section></main></body></html>\`;
+const menuSite=F.siteFromHtml(MENU_HTML,'Carta de prueba');
+const dishIndex=idx(MENU_HTML,'.dish-name');
+const dishTarget=F.resolveImageTarget(menuSite,dishIndex);
+assert.equal(dishTarget?.kind,'item','Un texto de plato se resuelve a su fila');
+assert.equal(dishTarget?.tag,'LI','La foto se asocia al li del plato');
+assert.match(dishTarget?.label||'',/Croquetas de carrilleras/);
+const testPng=new Uint8Array([137,80,78,71,13,10,26,10,10,20,30,40]);
+let menuWithPhoto=F.attachLocalImage(menuSite,dishIndex,testPng);
+let menuDoc=doc(menuWithPhoto.html);
+assert.equal(menuDoc.querySelectorAll('li.dish-row > img[data-wayup-photo]').length,1,'La foto queda dentro de la fila del plato');
+assert.equal(menuDoc.querySelectorAll('section#carta > img[data-wayup-photo]').length,0,'No se adjunta al bloque de toda la carta');
+assert.equal(Object.keys(menuWithPhoto.assets).filter(x=>x.startsWith('wayup-media/')).length,1,'El recurso se guarda en el proyecto');
+let afterDishIndex=idx(menuWithPhoto.html,'.dish-name');
+let afterDishTarget=F.resolveImageTarget(menuWithPhoto,afterDishIndex);
+assert.equal(afterDishTarget?.kind,'item');
+assert.equal(afterDishTarget?.managedImage,true,'El editor reconoce la foto asociada');
+const testJpeg=new Uint8Array([255,216,255,0,0,0,0,0,0,0,0,0]);
+menuWithPhoto=F.attachLocalImage(menuWithPhoto,afterDishIndex,testJpeg);
+menuDoc=doc(menuWithPhoto.html);
+assert.equal(menuDoc.querySelectorAll('li.dish-row > img[data-wayup-photo]').length,1,'Sustituir no duplica fotografías');
+assert.equal(Object.keys(menuWithPhoto.assets).filter(x=>x.startsWith('wayup-media/')).length,1,'La foto anterior sin referencias se limpia del ZIP');
+afterDishIndex=idx(menuWithPhoto.html,'.dish-name');
+const removedPhoto=F.removeLocalImage(menuWithPhoto,afterDishIndex);
+assert.equal(doc(removedPhoto.html).querySelectorAll('li.dish-row > img[data-wayup-photo]').length,0,'La foto se puede eliminar');
+assert.equal(Object.keys(removedPhoto.assets).filter(x=>x.startsWith('wayup-media/')).length,0,'La foto eliminada se retira de los recursos');
+const sectionTitleIndex=idx(MENU_HTML,'#carta-title');
+const sectionTarget=F.resolveImageTarget(menuSite,sectionTitleIndex);
+assert.equal(sectionTarget?.kind,'section','Un título de sección se resuelve a su sección');
+assert.equal(sectionTarget?.tag,'SECTION');
+const sectionWithPhoto=F.attachLocalImage(menuSite,sectionTitleIndex,testPng);
+const sectionDoc=doc(sectionWithPhoto.html);
+assert.equal(sectionDoc.querySelectorAll('section#carta > img[data-wayup-photo]').length,1,'La foto de sección se inserta después de su título');
+assert.equal(sectionDoc.querySelectorAll('li.dish-row > img[data-wayup-photo]').length,0);
+const zippedMenu=F.siteFromZip(F.siteZip(menuWithPhoto));
+assert.equal(Object.keys(zippedMenu.assets).filter(x=>x.startsWith('wayup-media/')).length,1,'La fotografía del plato sobrevive a exportar y reabrir el ZIP');
+assert.match(zippedMenu.html,/data-wayup-photo-kind="item"/);
+
 console.log('Correcto: estilos validados, texto en línea seguro, atributos, copiar/pegar/duplicar, mover, ocultar, eliminar y SEO.');
