@@ -1,7 +1,6 @@
 'use client';
-/** Pestaña «Símbolos» del panel Insertar: más de 2 000 iconos (Lucide, ISC) con búsqueda en castellano.
- *  Se insertan como SVG en línea dentro de un contenedor seleccionable: el color sigue a «Color del texto»
- *  y el tamaño se cambia con los tiradores. */
+/** Biblioteca reutilizable de más de 2.000 iconos Lucide (ISC): permite insertarlos o sustituir un SVG existente.
+ *  En modo sustitución conserva la caja, el color y el grosor del símbolo de destino. */
 import React, { useEffect, useMemo, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { loadSymbols, searchSymbols, symbolBlock, SYMBOL_CATEGORIES, type SymbolEntry } from '@/lib/symbols';
