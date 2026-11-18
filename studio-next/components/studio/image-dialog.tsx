@@ -14,7 +14,7 @@ export type ImageApply = {
   credit?: { text: string; link: string } | null;
 };
 type Src = { url: string; bytes: Uint8Array; mime: string; kind: 'actual' | 'nueva'; isOriginal: boolean; credit?: { text: string; link: string } };
-type Photo = { id: number; thumb: string; w: number; h: number; user: string; tags: string };
+type Photo = { id: number | string; thumb: string; w: number; h: number; user: string; tags: string };
 
 const RATIOS: { id: string; name: string; r: number | null }[] = [
   { id: 'caja', name: 'Caja actual', r: null }, { id: 'libre', name: 'Libre', r: null },
@@ -221,7 +221,7 @@ export function ImageDialog({ info, loadCurrent, onApply, onClose }: {
                 <img src={p.thumb} alt={p.tags} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" /></button>)}
               {!photos.length && <p className="col-span-full p-3 text-center text-[11px] text-faint">Sin resultados. Prueba con otras palabras.</p>}
             </div>}
-            <p className="text-[10px] text-faint">Fotos gratuitas de Pixabay. La elegida se descarga al proyecto y se guarda su autoría.</p>
+            <p className="text-[10px] text-faint">Fotos gratuitas de Pixabay y Openverse (licencias abiertas). La elegida se descarga al proyecto y se guarda su autoría.</p>
           </div>}
 
           {src ? <>

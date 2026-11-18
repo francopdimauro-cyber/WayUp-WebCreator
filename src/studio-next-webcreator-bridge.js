@@ -2,6 +2,7 @@
 import {analyzeWebsite,analyzeReferenceImage,proposeDirection,researchReferences,directionBrief,sanitizeDirection,CreatorError,decodeImage,VISION_MODEL} from './studio-creator-research.js';
 import {patternExample} from './studio-web-patterns.js';
 import {callExternal,diagnoseProviders,isExternal,modelsFor,probeModels,workersAIEnabled} from './studio-ai-providers.js';
+import {openversePhoto,openverseSearch,openverseGet} from './studio-openverse.js';
 const STUDIO_ACCESS_AUD='78890161c85752fcd44d08bde44510aac74aa51d9ee12371327fa6875ac6d8a6';
 const STUDIO_WEB_PREFIX='/studio-api/webcreator';
 
@@ -298,10 +299,18 @@ async function studioPixabayPhoto(env,prompt){
    (lo permite su API para resultados de búsqueda); la foto elegida se descarga al proyecto con su procedencia. */
 const PIXABAY_IMAGE_RE=/^https:\/\/(pixabay\.com|cdn\.pixabay\.com)\//;
 async function studioPhotoSearch(env,data){
-  if(!env?.PIXABAY_API_KEY)throw new StudioAIError('El buscador de fotos no está configurado.','photos_off');
   const q=String(data?.q||'').replace(/[^\p{L}\p{N}\s-]/gu,' ').replace(/\s+/g,' ').trim().slice(0,100);
   if(q.length<2)throw new StudioAIError('Escribe qué foto buscas.','photo_query');
   const orientation=['horizontal','vertical'].includes(data?.orientation)?data.orientation:'all';
+  // Pixabay primero; si da pocos resultados (o no hay clave), se completa con Openverse (licencias abiertas, sin clave).
+  let pix={total:0,photos:[]};
+  if(env?.PIXABAY_API_KEY){try{pix=await studioPixabaySearch(env,q,orientation,data);}catch(e){if(!(e instanceof StudioAIError))throw e;}}
+  if(pix.photos.length>=12)return pix;
+  const ov=await openverseSearch(q,orientation);
+  if(!pix.photos.length&&!ov.length)throw new StudioAIError('No hay fotos para esa búsqueda. Prueba con otras palabras.','photo_search');
+  return {total:pix.total+ov.length,photos:[...pix.photos,...ov]};
+}
+async function studioPixabaySearch(env,q,orientation,data){
   const page=Math.max(1,Math.min(10,Number(data?.page)||1));
   const url='https://pixabay.com/api/?key='+encodeURIComponent(env.PIXABAY_API_KEY)+'&q='+encodeURIComponent(q)+'&lang=es'+
     '&image_type=photo&safesearch=true&per_page=24&page='+page+'&orientation='+orientation;
@@ -313,6 +322,9 @@ async function studioPhotoSearch(env,data){
     w:Number(h.imageWidth)||0,h:Number(h.imageHeight)||0,user:String(h.user||'').slice(0,60),tags:String(h.tags||'').slice(0,120)}))};
 }
 async function studioPhotoGet(env,data){
+  if(String(data?.id||'').startsWith('ov:')){
+    try{return await openverseGet(data.id);}catch(e){throw new StudioAIError(String(e?.message||'No se pudo descargar la foto.').slice(0,160),'photo_search');}
+  }
   if(!env?.PIXABAY_API_KEY)throw new StudioAIError('El buscador de fotos no está configurado.','photos_off');
   const id=Number(data?.id);
   if(!Number.isInteger(id)||id<=0)throw new StudioAIError('Foto no válida.','photo_query');
@@ -749,6 +761,9 @@ export async function wayupStudioWebCreatorBridge(request,env,ctx){
     try{
       const real=await studioPixabayPhoto(env,String(data?.prompt||'').slice(0,500));
       if(real)return studioWebJson(real);
+      // Sin foto en Pixabay: Openverse (licencia comercial y modificable, con autoría) antes de rendirse.
+      const open=await openversePhoto(String(data?.prompt||'').slice(0,500));
+      if(open)return studioWebJson(open);
       return studioWebJson({image:await studioAIImage(env,data?.prompt),source:'ia'});
     }
     catch(error){
