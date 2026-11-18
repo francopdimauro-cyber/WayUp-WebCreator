@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {Bot,CheckCircle2,LoaderCircle,MessageCircle,Pause,Play,RefreshCw,Users,X} from 'lucide-react';
+import {Bot,CheckCircle2,LoaderCircle,MessageCircle,Pause,Play,RefreshCw,Trash2,Users,X} from 'lucide-react';
 
 // Gestor nativo de agentes de Studio: usa la API privada /studio-api/agents con la sesión de Cloudflare Access.
 // Sustituye al antiguo script inyectado (#wayup-own-agent-open), sin segundo inicio de sesión.
@@ -58,6 +58,16 @@ export function AgentLibrary({onClose,onCreateForWeb}:{onClose():void;onCreateFo
   try{await fn();}catch(e){setResult(e instanceof Error?e.message:'No se pudo completar la acción.');}
   finally{setBusy(false);}
  }
+ /** Elimina para siempre el agente seleccionado (con sus chats publicados y contactos), tras confirmación. */
+ const remove=()=>{
+  const a=agents.find(x=>x.id===selected);if(!a)return;
+  if(!window.confirm('¿Eliminar para siempre «'+a.name+'»?\n\nSe borrarán también sus chats publicados y los contactos recibidos. '+
+   'El chat dejará de funcionar en las webs donde esté insertado. Esta acción NO se puede deshacer.'))return;
+  return run('Eliminando…',async()=>{
+   await api('DELETE','/agents/'+a.id);setLeads(null);await refresh();
+   setResult('«'+a.name+'» eliminado.');
+  });
+ };
  const setStatus=(status:'active'|'paused')=>run(status==='active'?'Activando…':'Pausando…',async()=>{
   await api('POST','/agents/'+selected+'/status',{status});await refresh();
   setResult(status==='active'?'Agente activo: sus widgets autorizados ya pueden responder.':'Agente en pausa: sus widgets dejan de responder.');
@@ -110,6 +120,7 @@ export function AgentLibrary({onClose,onCreateForWeb}:{onClose():void;onCreateFo
        <button className={btn} disabled={busy||agent.status==='active'} onClick={()=>void setStatus('active')}><Play size={14}/> Activar</button>
        <button className={btn} disabled={busy||agent.status!=='active'} onClick={()=>void setStatus('paused')}><Pause size={14}/> Pausar</button>
        <button className={btn} disabled={busy} onClick={()=>void loadLeads()}><Users size={14}/> Contactos</button>
+       <button className={btn+' text-red-600 hover:border-red-400'} disabled={busy} onClick={()=>void remove()}><Trash2 size={14}/> Eliminar</button>
       </div>
       <label className="mt-4 block text-[11px] text-mist">Pregunta de prueba
        <textarea className="mt-1 w-full resize-y rounded-lg border border-stroke bg-elevated px-3 py-2 text-[12px] text-ink outline-none focus:border-brand"
@@ -122,7 +133,7 @@ export function AgentLibrary({onClose,onCreateForWeb}:{onClose():void;onCreateFo
       {leads&&<div className="mt-3 rounded-lg bg-elevated p-3 text-[11px] leading-5">
        {leads.length===0?'Todavía no hay contactos.':leads.map(l=><p key={l.id} className="mb-2"><strong>{l.name}</strong> · {l.email}<br/>{l.message}</p>)}
       </div>}
-      <p className="mt-4 text-[10px] leading-5 text-faint">Herramientas disponibles: conversación, consulta de conocimiento y captación de contactos con consentimiento. Reservas, pagos, correo y acciones externas: pendientes, no habilitadas.</p>
+      <p className="mt-4 text-[10px] leading-5 text-faint">Herramientas disponibles: conversación con memoria, conocimiento del negocio, contactos con consentimiento (con aviso por correo), búsqueda en internet y en Google Maps, tiempo, festivos, divisas, Wikipedia y datos deportivos. Se activan al crear o editar el agente. Reservas y pagos: no habilitados.</p>
      </div>}
     </div>}
    </>}
