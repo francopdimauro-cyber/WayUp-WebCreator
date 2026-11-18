@@ -31,7 +31,10 @@ export function agentZip(agent: ExportableAgent, chat: AgentChat): Uint8Array {
     files['demo.html'] = strToU8('<!DOCTYPE html>\n<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<title>Demo · ' + esc(agent.name) + '</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:60px auto;padding:0 20px;line-height:1.6;color:#1c1c1c}code{background:#f2f2f2;padding:2px 6px;border-radius:4px}</style></head><body>' +
       '<h1>' + esc(agent.name) + '</h1><p>Página de demostración del asistente. El botón del chat aparece abajo a la derecha.</p>' +
-      '<p><strong>Importante:</strong> por seguridad, el chat solo responde cuando esta página se sirve desde <code>' + esc(chat.origin) + '</code>. Abierta desde tu ordenador o desde otro dominio, el botón indicará «Asistente no disponible».</p>\n' +
+      (chat.origin
+        ? '<p><strong>Importante:</strong> por seguridad, el chat solo responde cuando esta página se sirve desde <code>' + esc(chat.origin) + '</code>. Desde otro dominio, el botón indicará «Asistente no disponible».</p>\n'
+        : '<p><strong>Modo prueba:</strong> este chat aún no tiene dominio, así que solo responde al abrir esta página en tu ordenador (máx. 40 mensajes al día). Para publicarlo, añade el dominio en WAY UP Studio › Agente IA.</p>\n') +
+      '<p>Si el botón indica «Asistente no disponible», comprueba en WAY UP Studio › Agentes IA que el agente está <strong>activo</strong> (no en pausa).</p>\n' +
       snippet + '\n</body></html>\n');
   }
   files['LEEME.txt'] = strToU8([
