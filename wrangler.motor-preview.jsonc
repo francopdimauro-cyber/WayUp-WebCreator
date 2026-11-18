@@ -39,7 +39,7 @@
     // Dos (o más) modelos potentes por tarea, en orden de preferencia. Si uno falla o agota su cupo, se usa el siguiente
     // y, al final, Workers AI. Gemini 4 Hydrogen va delante solo en la planificación (cupo gratuito de ~20/día).
     "STUDIO_WEB_PLAN_MODELS": "gemini:gemini-4-hydrogen,openrouter:nvidia/nemotron-3-ultra-550b-a55b:free,groq:openai/gpt-oss-120b",
-    "STUDIO_WEB_BUILD_MODELS": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free,openrouter:cohere/north-mini-code:free,groq:openai/gpt-oss-120b",
+    "STUDIO_WEB_BUILD_MODELS": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free,cerebras:gpt-oss-120b,openrouter:cohere/north-mini-code:free,groq:openai/gpt-oss-120b",
     "STUDIO_AGENT_MODELS": "groq:openai/gpt-oss-120b,groq:qwen/qwen3.8-27b,openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
     // Modelos con visión (revisión visual y análisis de imágenes de referencia), en orden de preferencia.
     "STUDIO_VISION_MODELS": "gemini:gemma-4-31b-it,openrouter:nvidia/nemotron-3.5-super-vl:free,groq:qwen/qwen3.8-27b",

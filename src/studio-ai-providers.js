@@ -17,7 +17,8 @@ export const PROVIDERS={
   gemini:{label:'Google Gemini',secret:'GEMINI_API_KEY',modelVar:'GEMINI_MODEL'},
   groq:{label:'Groq',secret:'GROQ_API_KEY',modelVar:'GROQ_MODEL'},
   openrouter:{label:'OpenRouter',secret:'OPENROUTER_API_KEY',modelVar:'OPENROUTER_MODEL'},
-  anthropic:{label:'Anthropic Claude',secret:'ANTHROPIC_API_KEY',modelVar:'ANTHROPIC_MODEL'}
+  anthropic:{label:'Anthropic Claude',secret:'ANTHROPIC_API_KEY',modelVar:'ANTHROPIC_MODEL'},
+  cerebras:{label:'Cerebras',secret:'CEREBRAS_API_KEY',modelVar:'CEREBRAS_MODEL'}
 };
 export const providerModel=(env,name)=>clip(env?.[PROVIDERS[name]?.modelVar],120);
 export const providerReady=(env,name)=>Boolean(PROVIDERS[name]&&env?.[PROVIDERS[name].secret]&&providerModel(env,name));
@@ -26,7 +27,7 @@ export function externalModels(env,use){
   const list=String((use==='agent'?env?.STUDIO_AGENT_PROVIDERS:env?.STUDIO_WEB_PROVIDERS)||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
   return [...new Set(list)].filter(n=>providerReady(env,n)).map(n=>n+':'+providerModel(env,n));
 }
-export const isExternal=ref=>/^(gemini|groq|openrouter|anthropic):/.test(String(ref||''));
+export const isExternal=ref=>/^(gemini|groq|openrouter|anthropic|cerebras):/.test(String(ref||''));
 /** Listas de modelos por tarea (variables del Worker, en orden de preferencia, «proveedor:modelo» separados por comas):
  *  plan  → STUDIO_WEB_PLAN_MODELS  (director, redactor, revisor y dirección creativa)
  *  build → STUDIO_WEB_BUILD_MODELS (constructores de secciones)
@@ -36,7 +37,7 @@ export const isExternal=ref=>/^(gemini|groq|openrouter|anthropic):/.test(String(
 export const workersAIEnabled=env=>String(env?.STUDIO_WORKERS_AI??'on').trim().toLowerCase()!=='off'&&Boolean(env?.AI?.run);
 export function modelsFor(env,use){
   const raw=use==='agent'?env?.STUDIO_AGENT_MODELS:use==='build'?env?.STUDIO_WEB_BUILD_MODELS:use==='vision'?env?.STUDIO_VISION_MODELS:env?.STUDIO_WEB_PLAN_MODELS;
-  const list=String(raw||'').split(',').map(s=>s.trim()).filter(r=>/^(gemini|groq|openrouter|anthropic):[\w./:-]{2,120}$/.test(r))
+  const list=String(raw||'').split(',').map(s=>s.trim()).filter(r=>/^(gemini|groq|openrouter|anthropic|cerebras):[\w./:-]{2,120}$/.test(r))
     .filter(r=>Boolean(env?.[PROVIDERS[r.split(':')[0]].secret]));
   if(list.length||use==='vision')return [...new Set(list)];
   const legacy=externalModels(env,use==='agent'?'agent':'web');
@@ -103,7 +104,8 @@ export async function callExternal(env,ref,messages,{maxTokens=8000,temperature=
     return {text,finish:finish==='MAX_TOKENS'?'length':finish};
   }
   if(name==='anthropic')return callClaude(key,model,messages,{maxTokens,timeoutMs,effort});
-  const url=name==='groq'?'https://api.groq.com/openai/v1/chat/completions':'https://openrouter.ai/api/v1/chat/completions';
+  // Groq, OpenRouter y Cerebras usan el mismo formato de chat (compatible con OpenAI).
+  const url=name==='groq'?'https://api.groq.com/openai/v1/chat/completions':name==='cerebras'?'https://api.cerebras.ai/v1/chat/completions':'https://openrouter.ai/api/v1/chat/completions';
   const headers={'Content-Type':'application/json',Authorization:'Bearer '+key};
   if(name==='openrouter')headers['X-Title']='WayUp Studio';
   const res=await timedFetch(url,{method:'POST',headers,body:JSON.stringify({model,messages,max_tokens:maxTokens,temperature})},timeoutMs);
@@ -153,7 +155,7 @@ export async function listModels(env,name,filter=''){
       if(!res.ok)throw await failure(name,res);
       ids=((await res.json())?.models||[]).filter(m=>(m?.supportedGenerationMethods||[]).includes('generateContent')).map(m=>String(m.name||'').replace(/^models\//,''));
     }else{
-      res=await timedFetch(name==='groq'?'https://api.groq.com/openai/v1/models':'https://openrouter.ai/api/v1/models',{headers:{Authorization:'Bearer '+key}},20000);
+      res=await timedFetch(name==='groq'?'https://api.groq.com/openai/v1/models':name==='cerebras'?'https://api.cerebras.ai/v1/models':'https://openrouter.ai/api/v1/models',{headers:{Authorization:'Bearer '+key}},20000);
       if(!res.ok)throw await failure(name,res);
       ids=((await res.json())?.data||[]).map(m=>String(m?.id||''));
     }
@@ -182,7 +184,7 @@ function PROBE_PNG_B64(){
 /** Prueba rápida de varios modelos a la vez («proveedor:modelo», máx. 8): responde, tiempo y error exacto.
  *  Pide algo de criterio (no solo «OK») para comparar también la calidad de la respuesta. */
 export async function probeModels(env,refs,{vision=false}={}){
-  const list=[...new Set(String(refs||'').split(',').map(s=>s.trim()).filter(r=>/^(gemini|groq|openrouter|anthropic):[\w./:-]{2,120}$/.test(r)))].slice(0,8);
+  const list=[...new Set(String(refs||'').split(',').map(s=>s.trim()).filter(r=>/^(gemini|groq|openrouter|anthropic|cerebras):[\w./:-]{2,120}$/.test(r)))].slice(0,8);
   const out={};
   await Promise.all(list.map(async ref=>{
     const t0=Date.now();
