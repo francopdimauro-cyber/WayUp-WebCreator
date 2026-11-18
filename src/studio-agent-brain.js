@@ -175,6 +175,7 @@ const TOOL_LINE = /^\s*(BUSCAR_WEB|BUSCAR_MAPA|TIEMPO|FESTIVOS|DIVISAS|WIKIPEDIA
  *  devuelven los resultados como DATOS externos para que conteste. */
 const groundRule = source => 'Responde al visitante usando EXCLUSIVAMENTE lo que aparece en esos resultados (indica la fuente: ' + source + ').\n' +
   'Cita la fuente por su NOMBRE (el medio o web entre corchetes, p. ej. «según marca.com» o «según ESPN»), nunca «los enlaces proporcionados». Si no das ningún dato porque no aparece, no pongas línea de fuente.\n' +
+  'EQUIPOS: si nombran un club sin más (p. ej. «el Real Madrid»), se refiere a su PRIMER EQUIPO MASCULINO de fútbol, salvo que digan femenino, baloncesto, filial o juvenil. Ignora resultados de otras secciones.\n' +
   'FECHAS: si los resultados mencionan varios partidos o fechas, el «último» es el MÁS RECIENTE anterior a hoy y el «próximo» el más cercano posterior a hoy. Di siempre la fecha del dato. Si el dato más reciente que encuentras tiene más de 2 semanas, avisa de que puede no ser el último.\n' +
   'PROHIBIDO añadir nombres, cifras, alineaciones, resultados o fechas que no estén escritos literalmente arriba. Si falta algo de lo que pidió (por ejemplo, las alineaciones aún no se han publicado), dilo claramente: «Ese dato no aparece en las fuentes consultadas». Es mejor una respuesta corta y cierta que una larga inventada. No vuelvas a buscar.';
 /** ¿Pregunta por datos actuales que no pueden salir de la memoria del modelo? */
@@ -201,6 +202,7 @@ const REVIEW_PROMPT = [
   '- Una alineación, convocatoria o resultado de un partido que aún no se ha jugado NO es oficial: preséntalo como «once probable según <fuente>» salvo que la fuente diga expresamente que es oficial o confirmado.',
   '- Corrige lo que contradiga a las fuentes o confunda partidos, fechas o equipos (por ejemplo, presentar datos de un partido pasado como del próximo).',
   '- Si tras quitar lo no respaldado falta lo que se pidió, dilo con naturalidad: «Ese dato no aparece en las fuentes consultadas».',
+  '- EQUIPOS: un club nombrado sin más es su PRIMER EQUIPO MASCULINO de fútbol; si el borrador habla del femenino, filial o de otro deporte sin que lo pidieran, corrígelo con el dato del primer equipo o di que no aparece.',
   '- FECHAS: compara con HOY. Si preguntan por el «último» partido, debe ser el más reciente anterior a hoy según las fuentes (mira las fechas de publicación); si el borrador da uno más antiguo habiendo otro más reciente, corrígelo. Incluye la fecha del dato.',
   '- Si el borrador da datos concretos sin decir de dónde salen, añade la fuente por su nombre o, si no aparecen en las fuentes, quítalos.',
   '- Si el RESUMEN DEL BUSCADOR da el dato pedido (por ejemplo, un marcador), puedes usarlo citando la web de la que procede.',
@@ -224,7 +226,7 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
     try {
       const lastUser = [...(opts.history || [])].reverse().find(h => h?.role === 'user')?.text || '';
       // Noticias recientes y búsqueda general a la vez: más cobertura (crónicas, fichas de resultados, calendarios).
-      const q = (opts.message + ' ' + lastUser).slice(0, 200);
+      const q = (opts.message + ' ' + lastUser + (/f[uú]tbol|partido|liga|gan|perd|empat/i.test(opts.message + lastUser) && !/femenin/i.test(opts.message + lastUser) ? ' primer equipo masculino' : '')).slice(0, 220);
       const [recent, general] = await Promise.all([webSearch(env, q, fetcher, { news: true }).catch(() => ''), webSearch(env, q, fetcher).catch(() => '')]);
       consulted = [recent, general].filter(t => t && !/^Sin resultados/.test(t)).join('\n\n— — —\n\n');
     } catch { consulted = ''; }
