@@ -52,7 +52,7 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
  const [proposal,setProposal]=useState<Proposal|null>(null);
  const [knowledge,setKnowledge]=useState('');
  const [enableKnowledge,setEnableKnowledge]=useState(true);
- const [enableLeads,setEnableLeads]=useState(false);
+ const [enableLeads,setEnableLeads]=useState(false); const [enableWeb,setEnableWeb]=useState(false);const [enableMaps,setEnableMaps]=useState(false);
  const [savedAgent,setSavedAgent]=useState<{agentId:string;chatId?:string}|null>(site.agent?{agentId:site.agent.agentId,chatId:site.agent.chatId}:null);
  const [agentList,setAgentList]=useState<AgentInfo[]>([]);
  const [existingId,setExistingId]=useState(site.agent?.agentId||'');
@@ -105,7 +105,7 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
   if(!proposal||proposal.requiresApproval)throw Error('Primero genera y revisa una propuesta aprobada.');
   const config={name:proposal.name,description:proposal.description,role:proposal.role,
    objective:proposal.objective,instructions:proposal.instructions,knowledge:enableKnowledge?knowledge:'',
-   tools:['text_generation',...(enableKnowledge?['knowledge_lookup']:[]),...(enableLeads?['lead_capture']:[])]};
+   tools:['text_generation',...(enableKnowledge?['knowledge_lookup']:[]),...(enableLeads?['lead_capture']:[]),...(enableWeb?['web_search']:[]),...(enableMaps?['maps_search']:[])]};
   if(savedAgent?.agentId){
    await backend('PUT','/agents/'+savedAgent.agentId,{config});return savedAgent.agentId;
   }
@@ -237,6 +237,8 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
        <textarea className={field+' mt-1 min-h-[125px] resize-y'} maxLength={12000} value={knowledge} onChange={e=>setKnowledge(e.target.value)}/>
       </label>}
       <label className="mt-3 flex items-center gap-2 text-[11px]"><input type="checkbox" checked={enableLeads} onChange={e=>setEnableLeads(e.target.checked)}/><Users size={14}/> Recibir solicitudes de contacto con consentimiento</label>
+      <label className="mt-2 flex items-center gap-2 text-[11px]"><input type="checkbox" checked={enableWeb} onChange={e=>setEnableWeb(e.target.checked)}/><Globe2 size={14}/> Buscar en internet cuando no lo sepa (Tavily)</label>
+      <label className="mt-2 flex items-center gap-2 text-[11px]"><input type="checkbox" checked={enableMaps} onChange={e=>setEnableMaps(e.target.checked)}/><Globe2 size={14}/> Buscar sitios en Google Maps (dirección, horario, valoraciones)</label>
       <p className="mt-2 text-[10px] leading-5 text-faint">No activa pagos, reservas, correo ni navegación externa. Esas funciones necesitarán integraciones y permisos independientes.</p>
      </div>
      {proposal.requiresApproval&&<p className="mt-3 text-[11px] text-amber-400">Esta propuesta requiere revisión antes de publicarse.</p>}

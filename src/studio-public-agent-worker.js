@@ -3,7 +3,7 @@
  * la conversación solo funciona en el origen HTTPS autorizado por el dueño.
  */
 import {callExternal,modelsFor,workersAIEnabled} from './studio-ai-providers.js';
-import {agentMessages,agentReply} from './studio-agent-brain.js';
+import {agentAnswer,agentReply} from './studio-agent-brain.js';
 const AGENT_MODEL='@cf/google/gemma-4-26b-a4b-it';
 const AGENT_UUID=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const AGENT_PUBLIC_PREFIX='/api/chats/';
@@ -68,20 +68,19 @@ async function publicChat(req,env,url){
   if(!(await agentCheckAndCharge(env.STUDIO_DB,req,row,'message')))return agentJson({error:'Límite de mensajes alcanzado. Vuelve a intentarlo mañana.'},429,origin);
   const tools=JSON.parse(row.tools_json||'["text_generation"]');
   // Mismo «cerebro» que la prueba del panel: estrategia de conversación, memoria de los últimos turnos y conocimiento.
-  const messages=agentMessages({name:row.agent_name,role:row.role,objective:row.objective,instructions:row.instructions,knowledge:row.knowledge},
-   {message,history:data.history,tools});
-  try{
-   // Primero los modelos externos de agentes (STUDIO_AGENT_MODELS); Workers AI solo si está activado.
-   let text='';
+  const agent={name:row.agent_name,role:row.role,objective:row.objective,instructions:row.instructions,knowledge:row.knowledge};
+  // Una llamada al modelo: primero los externos de agentes (STUDIO_AGENT_MODELS); Workers AI solo si está activado.
+  const call=async messages=>{
    for(const ref of modelsFor(env,'agent')){
-    try{text=(await callExternal(env,ref,messages,{maxTokens:900,temperature:0.35,timeoutMs:40000})).text;if(text)break;}
+    try{const t=(await callExternal(env,ref,messages,{maxTokens:900,temperature:0.35,timeoutMs:40000})).text;if(t)return t;}
     catch(e){console.warn('agent-public external error',ref,String(e?.message||e).slice(0,200));}
    }
-   if(!text&&workersAIEnabled(env)){
-    const ai=await env.AI.run(AGENT_MODEL,{messages,max_completion_tokens:750,temperature:0.35});
-    text=agentAiText(ai);
-   }
-   const reply=agentReply(text,3800);
+   if(workersAIEnabled(env))return agentAiText(await env.AI.run(AGENT_MODEL,{messages,max_completion_tokens:750,temperature:0.35}));
+   return '';
+  };
+  try{
+   // Cerebro común: memoria, conocimiento y, si están activadas, búsqueda en internet y en Google Maps.
+   const reply=agentReply(await agentAnswer(env,agent,{message,history:data.history,tools},call),3800);
    if(!reply)return agentJson({error:'El agente no respondió. Prueba otra vez.'},502,origin);
    return agentJson({reply},200,origin);
   }catch{return agentJson({error:'La IA no pudo responder ahora.'},502,origin);}

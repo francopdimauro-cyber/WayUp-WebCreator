@@ -1,9 +1,9 @@
 /* WAY UP Studio: agentes propios en preview, autenticación OTP en el edge */
 import {callExternal,modelsFor,workersAIEnabled} from './studio-ai-providers.js';
-import {agentMessages,agentReply} from './studio-agent-brain.js';
+import {agentAnswer,agentReply} from './studio-agent-brain.js';
 const SA_PREFIX='/studio-api/agents',SA_AUD='78890161c85752fcd44d08bde44510aac74aa51d9ee12371327fa6875ac6d8a6';
 const SA_MODEL='@cf/google/gemma-4-26b-a4b-it',SA_UUID=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
-const SA_TOOLS=['text_generation','knowledge_lookup','lead_capture'];
+const SA_TOOLS=['text_generation','knowledge_lookup','lead_capture','web_search','maps_search'];
 function saJson(v,status=200){return new Response(JSON.stringify(v),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store','x-content-type-options':'nosniff'}})}
 async function saOwner(env,ctx){
  if(!ctx?.access||ctx.access.aud!==SA_AUD)return null;
@@ -83,9 +83,9 @@ async function saTest(env,user,agent,message,history){
  if(!await saQuota(env.STUDIO_DB,user.id,'agent-test',SA_TESTS_PER_DAY))return saJson({error:'Límite de '+SA_TESTS_PER_DAY+' pruebas diarias.'},429);
  const tools=JSON.parse(agent.tools_json||'["text_generation"]');
  // Mismo «cerebro» que el chat publicado: lo que el dueño prueba es lo que verá el visitante.
- const messages=agentMessages(agent,{message,history,tools});
- try{const x=await saRun(env,messages,900,0.35);
- const reply=agentReply(x.text,4000);if(!reply)throw Error('empty');return saJson({reply,tools,model:x.model});
+ let model='';
+ try{const text=await agentAnswer(env,agent,{message,history,tools},async messages=>{const x=await saRun(env,messages,900,0.35);model=x.model;return x.text;});
+ const reply=agentReply(text,4000);if(!reply)throw Error('empty');return saJson({reply,tools,model});
  }catch{await saRelease(env.STUDIO_DB,user.id,'agent-test').catch(()=>{});return saJson({error:'La IA no pudo responder en la prueba.'},502)}
 }
 export async function wayupStudioOwnAgentBridge(request,env,ctx){

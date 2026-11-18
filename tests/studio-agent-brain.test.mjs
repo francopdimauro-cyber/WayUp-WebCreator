@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {agentKnowledgeFor,agentHistory,agentMessages,agentReply,agentSystemPrompt} from '../src/studio-agent-brain.js';
+import {agentKnowledgeFor,agentHistory,agentMessages,agentReply,agentSystemPrompt,agentAnswer} from '../src/studio-agent-brain.js';
+
+test('Búsqueda: el agente pide BUSCAR_MAPA, se consulta Google Maps y contesta con los datos',async()=>{
+  const calls=[];const urls=[];
+  const call=async m=>{calls.push(m);return calls.length===1?'BUSCAR_MAPA: Museo Ficticio Madrid':'Está en **Calle Falsa 1** (Google Maps).';};
+  const fetcher=async(url,init)=>{urls.push({url,init});return new Response(JSON.stringify({places:[{displayName:{text:'Museo Ficticio'},formattedAddress:'Calle Falsa 1, Madrid',rating:4.6,userRatingCount:120}]}),{status:200});};
+  const r=await agentAnswer({GOOGLE_MAPS_API_KEY:'k'},AGENT,{message:'¿Dónde está el museo?',tools:['maps_search']},call,fetcher);
+  assert.equal(r,'Está en **Calle Falsa 1** (Google Maps).');
+  assert.match(urls[0].url,/places:searchText/);assert.equal(urls[0].init.headers['X-Goog-Api-Key'],'k');
+  assert.match(calls[1].at(-1).content,/RESULTADOS DE GOOGLE MAPS[\s\S]*Calle Falsa 1[\s\S]*4\.6/);
+  assert.match(calls[0][0].content,/BUSCAR_WEB|BUSCAR_MAPA/);
+  // Sin la herramienta activada no se busca.
+  const r2=await agentAnswer({TAVILY_API_KEY:'k'},AGENT,{message:'x',tools:[]},async()=> 'BUSCAR_WEB: algo',async()=>{throw Error('no debe buscar')});
+  assert.ok(typeof r2==='string');
+});
 
 const AGENT={name:'Asistente Ficticio',role:'Atención al cliente',objective:'Resolver dudas y llevar a reservar',instructions:'Tutea.',knowledge:'Horario: de lunes a viernes de 9 a 20 h.'};
 
