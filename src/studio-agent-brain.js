@@ -195,6 +195,18 @@ export function unsupportedNumbers(reply, evidence) {
   return [...new Set(nums.map(n => n.replace(/\s/g, '')))].filter(n => !/^(19|20)\d\d$/.test(n))
     .filter(n => { const alt = [n, n.replace(',', '.'), n.replace('.', ','), n.replace(/[–:]/, '-'), n.replace(/[-–]/, ':')]; return !alt.some(a => ev.replace(/\s/g, '').includes(a)); });
 }
+const QUERY_PROMPT = [
+  'Conviertes la pregunta de un visitante en las MEJORES búsquedas para un buscador web, como las escribiría un periodista experto.',
+  'Reglas:',
+  '- Escribe 1 o 2 búsquedas, una por línea, sin numerar ni explicar nada.',
+  '- Concretas y cortas (3–8 palabras): nombres propios completos, competición, tipo de dato (resultado, crónica, calendario, alineación probable, cuota…) y, si ayuda, el mes y año actuales.',
+  '- Resuelve las referencias con el contexto: «el siguiente» = próximo partido del equipo mencionado antes; «el último» = el más reciente antes de HOY.',
+  '- Un club nombrado sin más es su primer equipo masculino de fútbol.',
+  '- En el idioma en que más se publica sobre ese tema (normalmente castellano).',
+  'Ejemplo: «¿Cómo quedó el último partido del Madrid?» →',
+  'Real Madrid resultado último partido noviembre 2026',
+  'Real Madrid crónica partido LaLiga',
+].join('\n');
 const REVIEW_PROMPT = [
   'Eres un VERIFICADOR DE DATOS. Recibes unas FUENTES, la pregunta de un visitante y el BORRADOR de respuesta de un asistente.',
   'Revisa el borrador frase a frase contra las fuentes:',
@@ -225,10 +237,21 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
   if (current && tools.includes('web_search') && env?.TAVILY_API_KEY) {
     try {
       const lastUser = [...(opts.history || [])].reverse().find(h => h?.role === 'user')?.text || '';
-      // Noticias recientes y búsqueda general a la vez: más cobertura (crónicas, fichas de resultados, calendarios).
-      const q = (opts.message + ' ' + lastUser + (/f[uú]tbol|partido|liga|gan|perd|empat/i.test(opts.message + lastUser) && !/femenin/i.test(opts.message + lastUser) ? ' primer equipo masculino' : '')).slice(0, 220);
-      const [recent, general] = await Promise.all([webSearch(env, q, fetcher, { news: true }).catch(() => ''), webSearch(env, q, fetcher).catch(() => '')]);
-      consulted = [recent, general].filter(t => t && !/^Sin resultados/.test(t)).join('\n\n— — —\n\n');
+      const fallback = (opts.message + ' ' + lastUser).slice(0, 200);
+      // a) Reformulación: el modelo convierte la pregunta (con la fecha de hoy y el contexto) en 1–2 búsquedas como las haría
+      //    una persona: equipo/tema concreto, competición y fecha. Si falla, se usa la pregunta tal cual.
+      let queries = [fallback];
+      try {
+        const raw = agentReply(await call([{ role: 'system', content: QUERY_PROMPT },
+          { role: 'user', content: 'HOY ES: ' + todayEs() + '\n' + (lastUser ? 'PREGUNTA ANTERIOR: ' + lastUser.slice(0, 300) + '\n' : '') + 'PREGUNTA: ' + String(opts.message).slice(0, 600) }]));
+        const qs = raw.split('\n').map(l => l.replace(/^\s*(?:Q\d?|BUSQUEDA\s*\d?|BÚSQUEDA\s*\d?|\d+[.)-])\s*:?\s*/i, '').replace(/^["«]|["»]$/g, '').trim())
+          .filter(l => l.length >= 4 && l.length <= 160 && !/^(hoy es|pregunta)/i.test(l)).slice(0, 2);
+        if (qs.length) queries = qs;
+      } catch { /* pregunta tal cual */ }
+      // b) Noticias recientes (con resumen del buscador) para la primera búsqueda y web general para todas.
+      const runs = await Promise.all([webSearch(env, queries[0], fetcher, { news: true }).catch(() => ''),
+        ...queries.map(q => webSearch(env, q, fetcher).catch(() => ''))]);
+      consulted = runs.filter(t => t && !/^Sin resultados/.test(t)).join('\n\n— — —\n\n');
     } catch { consulted = ''; }
   }
   const withPre = consulted ? [...messages.slice(0, -1), { role: 'user', content: messages.at(-1).content + '\n\n' +

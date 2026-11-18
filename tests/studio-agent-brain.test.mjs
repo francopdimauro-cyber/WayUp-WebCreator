@@ -81,5 +81,5 @@ test('Revisión: un segundo paso corrige el borrador contra las fuentes',async()
     return 'Lamine Yamal vuelve y jugará de titular seguro.';};
   const r=await answer({TAVILY_API_KEY:'k'},agent,{message:'¿Quién jugará el próximo partido?',tools:['web_search']},call,tavily);
   assert.equal(r,'Según la previa, **Lamine Yamal** vuelve a la lista; la alineación se conocerá el sábado.');
-  assert.equal(calls.length,2,'borrador + revisión');
+  assert.equal(calls.length,3,'reformulación + borrador + revisión');
 });
