@@ -4,6 +4,7 @@
  */
 import {callExternal,modelsFor,workersAIEnabled} from './studio-ai-providers.js';
 import {agentAnswer,agentReply} from './studio-agent-brain.js';
+import {notifyLead} from './studio-agent-mail.js';
 const AGENT_MODEL='@cf/google/gemma-4-26b-a4b-it';
 const AGENT_UUID=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const AGENT_PUBLIC_PREFIX='/api/chats/';
@@ -95,7 +96,9 @@ async function publicChat(req,env,url){
   if(!(await agentCheckAndCharge(env.STUDIO_DB,req,row,'lead')))return agentJson({error:'Límite temporal de solicitudes alcanzado.'},429,origin);
   await env.STUDIO_DB.prepare('INSERT INTO studio_agent_leads(id,agent_id,chat_id,name,email,message,consent) VALUES (?,?,?,?,?,?,1)')
    .bind(crypto.randomUUID(),row.agent_id,row.id,name,email,message).run();
-  return agentJson({saved:true,message:'Solicitud recibida y guardada para el responsable del negocio.'},201,origin);
+  // Aviso por correo al negocio (y confirmación al visitante si hay dominio verificado). Si falla, el contacto ya está guardado.
+  const mail=await notifyLead(env,{agentName:row.agent_name,origin:row.origin,name,email,message});
+  return agentJson({saved:true,message:mail.visitor?'Solicitud recibida. Te hemos enviado una confirmación por correo.':'Solicitud recibida y enviada al responsable del negocio.'},201,origin);
  }
  return agentJson({error:'Ruta no encontrada.'},404,origin);
 }
