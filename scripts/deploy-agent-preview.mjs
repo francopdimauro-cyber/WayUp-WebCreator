@@ -11,6 +11,6 @@ if(branch!==AUTHORIZED_BRANCH)throw Error('Despliegue bloqueado: rama '+branch+'
 if(out('git status --porcelain --untracked-files=no'))throw Error('Despliegue bloqueado: hay cambios sin confirmar.');
 const sha=out('git rev-parse --short=12 HEAD');
 
-run('node --test tests/studio-agents-sso-integration.test.mjs tests/studio-ai-providers.test.mjs tests/studio-agent-brain.test.mjs');
+run('node --test tests/studio-agents-sso-integration.test.mjs tests/studio-ai-providers.test.mjs tests/studio-agent-brain.test.mjs tests/studio-agent-data.test.mjs');
 run('npx --yes wrangler@4 deploy --config wrangler.agent-preview.jsonc --message "agents '+sha+'"');
 console.log('Desplegado wayup-studio-agent-preview con build '+sha);

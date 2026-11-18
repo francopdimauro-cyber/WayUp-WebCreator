@@ -13,7 +13,7 @@ const sha=out('git rev-parse --short=12 HEAD');
 
 run('npm test',{cwd:'studio-next'});
 run('npm run typecheck',{cwd:'studio-next'});
-run('node --test tests/studio-next-projects-bridge.test.mjs tests/studio-agents-sso-integration.test.mjs tests/studio-webcreator-ai.test.mjs tests/studio-access.test.mjs tests/studio-creator-research.test.mjs tests/studio-ai-providers.test.mjs tests/studio-agent-brain.test.mjs');
+run('node --test tests/studio-next-projects-bridge.test.mjs tests/studio-agents-sso-integration.test.mjs tests/studio-webcreator-ai.test.mjs tests/studio-access.test.mjs tests/studio-creator-research.test.mjs tests/studio-ai-providers.test.mjs tests/studio-agent-brain.test.mjs tests/studio-agent-data.test.mjs');
 run('npm run build',{cwd:'studio-next'});
 run('npx --yes wrangler@4 deploy --config wrangler.motor-preview.jsonc --define __STUDIO_BUILD__:\'"'+sha+'"\' --message "studio '+sha+'"');
 console.log('Desplegado wayup-studio-motor-preview con build '+sha);
