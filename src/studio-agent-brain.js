@@ -7,6 +7,8 @@ const KNOWLEDGE_FULL = 9000;   // si cabe, el agente recibe TODO su conocimiento
 const KNOWLEDGE_MAX = 6500;    // si no, los fragmentos más pertinentes hasta este tamaño
 const HISTORY_TURNS = 8;
 const HISTORY_CHARS = 6000;
+/** Fecha de hoy en España, en palabras (p. ej. «miércoles, 18 de noviembre de 2026»). */
+const todayEs = (d = new Date()) => { try { return d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch { return d.toISOString().slice(0, 10); } };
 
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const STOP = new Set('para como cual cuales donde cuando cuanto cuanta cuantos cuantas tiene tienen teneis hay esta estan este esto estos estas eso esos esas pero porque sobre entre desde hasta tambien muy mas menos todo todos toda todas puedo puede podeis quiero quisiera saber vuestro vuestra vuestros nuestro nuestra hola gracias buenas buenos dias tardes noches'.split(' '));
@@ -51,6 +53,7 @@ export function agentSystemPrompt(a, { leadCapture = false, useKnowledge = true,
   const clip = (v, n) => String(v || '').trim().slice(0, n);
   return [
     'Eres «' + clip(a.name, 80) + '», el asistente de este negocio en su página web. Hablas con visitantes reales que quieren resolver algo rápido.',
+    'Hoy es ' + todayEs() + ' (hora de España). Úsalo para entender «hoy», «ayer», «el próximo partido» y para distinguir lo que ya pasó de lo que está por venir.',
     '',
     '## Cómo trabajas',
     '- Responde PRIMERO exactamente a lo que te preguntan, en 1–4 frases o una lista corta. No repitas la pregunta ni saludes en cada mensaje.',
@@ -121,11 +124,13 @@ export function agentMessages(agent, { message, history, tools }) {
 
 /* ───── Herramientas de búsqueda (gratuitas): Tavily para internet y Google Places para Maps ───── */
 const clipT = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
-export async function webSearch(env, query, fetcher = fetch) {
+export async function webSearch(env, query, fetcher = fetch, { news = false } = {}) {
   if (!env?.TAVILY_API_KEY) throw Error('búsqueda web no configurada');
   const r = await fetcher('https://api.tavily.com/search', { method: 'POST', signal: AbortSignal.timeout(15000),
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.TAVILY_API_KEY },
-    body: JSON.stringify({ query: clipT(query, 200), search_depth: 'basic', max_results: 4, include_answer: false, include_images: false }) });
+    // Actualidad: solo noticias de los últimos días (evita artículos antiguos); el resto, búsqueda general.
+    body: JSON.stringify({ query: clipT(query, 200), search_depth: news ? 'advanced' : 'basic', max_results: news ? 6 : 4, include_answer: false, include_images: false,
+      ...(news ? { topic: 'news', days: 7 } : {}) }) });
   if (!r.ok) throw Error('Tavily ' + r.status);
   const hits = ((await r.json())?.results || []).slice(0, 4);
   return hits.map((h, i) => (i + 1) + '. ' + clipT(h.title, 120) + ' — ' + clipT(h.url, 200) + '\n' + clipT(h.content, 500)).join('\n\n') || 'Sin resultados.';
@@ -170,7 +175,15 @@ export function unsupportedNames(reply, evidence) {
   const names = (String(reply).replace(/\*+/g, ' ').match(/\b[A-ZÁÉÍÓÚÑ][a-záéíóúñü]{2,}\b/g) || []).filter(w => !STARTERS.has(w));
   return [...new Set(names)].filter(w => !ev.includes(norm(w)));
 }
-const NOT_VERIFIED = 'No tengo ese dato verificado en las fuentes que puedo consultar ahora mismo, así que prefiero no darte información que podría ser incorrecta. ' +
+/** Cifras «de dato» de la respuesta (marcadores 2-1, cuotas 1,85, porcentajes, cantidades) que no aparecen en las fuentes.
+ *  Se ignoran números de 1 cifra sueltos (pasos, listas) y los años. */
+export function unsupportedNumbers(reply, evidence) {
+  const ev = String(evidence).replace(/\s+/g, ' ');
+  const nums = String(reply).replace(/\*+/g, ' ').match(/\b\d{1,3}\s?[-–:]\s?\d{1,3}\b|\b\d+[.,]\d+\b|\b\d+\s?%|\b\d{2,}\b/g) || [];
+  return [...new Set(nums.map(n => n.replace(/\s/g, '')))].filter(n => !/^(19|20)\d\d$/.test(n))
+    .filter(n => { const alt = [n, n.replace(',', '.'), n.replace('.', ','), n.replace(/[–:]/, '-'), n.replace(/[-–]/, ':')]; return !alt.some(a => ev.replace(/\s/g, '').includes(a)); });
+}
+const NOT_VERIFIED ='No tengo ese dato verificado en las fuentes que puedo consultar ahora mismo, así que prefiero no darte información que podría ser incorrecta. ' +
   'Te recomiendo consultarlo en la fuente oficial más cerca del momento. ¿Te ayudo con otra cosa?';
 
 export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
@@ -183,7 +196,9 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
   if (current && tools.includes('web_search') && env?.TAVILY_API_KEY) {
     try {
       const lastUser = [...(opts.history || [])].reverse().find(h => h?.role === 'user')?.text || '';
-      consulted = await webSearch(env, (opts.message + ' ' + lastUser).slice(0, 200), fetcher);
+      consulted = await webSearch(env, (opts.message + ' ' + lastUser).slice(0, 200), fetcher, { news: true });
+      // Si en noticias recientes no hay nada, búsqueda general.
+      if (/^Sin resultados/.test(consulted)) consulted = await webSearch(env, (opts.message + ' ' + lastUser).slice(0, 200), fetcher);
     } catch { consulted = ''; }
   }
   const withPre = consulted ? [...messages.slice(0, -1), { role: 'user', content: messages.at(-1).content + '\n\n' +
@@ -204,7 +219,8 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
   }
   // 2) Verificador: en preguntas de datos actuales, si la respuesta trae varios nombres propios que no están en ninguna
   //    fuente, es casi seguro que el modelo los ha inventado: se descarta.
-  if (current && unsupportedNames(reply, evidence + '\n' + consulted).length >= 3) return NOT_VERIFIED;
+  const allEvidence = evidence + '\n' + consulted;
+  if (current && (unsupportedNames(reply, allEvidence).length >= 3 || unsupportedNumbers(reply, allEvidence).length >= 2)) return NOT_VERIFIED;
   return reply;
 }
 
