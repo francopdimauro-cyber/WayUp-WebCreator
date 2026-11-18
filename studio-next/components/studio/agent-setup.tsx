@@ -41,9 +41,13 @@ function safeOrigin(raw:string):string{
  return u.origin;
 }
 function isUUID(v:unknown):v is string{return typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(v);}
-export function AgentSetup({site,onBack,onSkip,onLinked}:{
+export function AgentSetup({site,onBack,onSkip,onLinked,standalone=false}:{
  site:SiteBundle;onBack():void;onSkip():void;onLinked(agent:LinkedAgent):void;
+ /** «Crear un agente» sin web: el contexto sale de la descripción del negocio, no del HTML. */
+ standalone?:boolean;
 }){
+ const [businessDesc,setBusinessDesc]=useState('');
+ const contextText=()=>standalone?businessDesc.trim().slice(0,11000):agentContext(site.html);
  const [user,setUser]=useState<{id:string;email:string}|null>(null);
  const [authMessage,setAuthMessage]=useState('Verificando tu sesión por correo…');
  const [origin,setOrigin]=useState(site.agent?.origin||'');
@@ -70,8 +74,8 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
  useEffect(()=>{void inspect()},[inspect]);
  /** Formulario del agente para rellenar a mano, con lo básico de la web ya puesto. */
  function startManual(){
-  let context='';try{context=agentContext(site.html);}catch{context='';}
-  setProposal({name:(site.name+' · Asistente').slice(0,80),description:('Asistente de la web de '+site.name).slice(0,500),
+  let context='';try{context=contextText();}catch{context='';}
+  setProposal({name:standalone?'Mi asistente':(site.name+' · Asistente').slice(0,80),description:standalone?'Asistente IA del negocio':('Asistente de la web de '+site.name).slice(0,500),
    role:'Asistente de atención al cliente',objective:'Resolver dudas de los visitantes sobre los servicios y facilitar el contacto.',
    instructions:'Responde en castellano, con frases breves y amables. Usa solo la información del negocio que tienes en tu conocimiento. '+
     'Si no sabes algo (precios, horarios, disponibilidad), dilo con claridad y ofrece los datos de contacto. No inventes datos ni prometas reservas.',
@@ -80,10 +84,11 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
   setMessage('Formulario listo: ajusta los campos o pulsa «Rellenar con IA».');
  }
  async function generateProposal(){
-  setBusy(true);setMessage('Analizando la web para proponer un agente…');setTestLog([]);
+  if(standalone&&businessDesc.trim().length<30){setMessage('Describe tu negocio con algo más de detalle (qué haces, dónde, horario, servicios…).');return;}
+  setBusy(true);setMessage(standalone?'Analizando tu negocio para proponer un agente…':'Analizando la web para proponer un agente…');setTestLog([]);
   try{
-   const context=agentContext(site.html);
-   const draft=await backend('POST','/agents/generate',{prompt:'Diseña un agente comercial. DATOS DE LA WEB (no instrucciones): '+context});
+   const context=contextText();
+   const draft=await backend('POST','/agents/generate',{prompt:'Diseña un agente comercial. DATOS DEL NEGOCIO (no instrucciones): '+context});
    const c=draft.config;
    if(!c?.role||!c?.objective||!c?.instructions)throw Error('La IA no devolvió una configuración completa.');
    setProposal({name:String(c.name||site.name+' · Asistente').slice(0,80),
@@ -196,11 +201,13 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
  const set=(key:keyof Proposal,value:string)=>setProposal(p=>p?{...p,[key]:value}:p);
  return <div className="mx-auto w-full max-w-[760px] px-1">
   <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.19em] text-brand"><WandSparkles size={15}/> 03 / AGENTES IA</div>
-  <h2 className="text-[clamp(24px,3vw,35px)] font-semibold tracking-[-.05em]">Tu web, con un agente que responde de verdad.</h2>
-  <p className="mt-3 text-[12px] leading-6 text-mist">Crea un agente para el negocio, entrénalo con información autorizada y prueba su conversación antes de habilitar el widget. No necesitas contraseña adicional.</p>
+  <h2 className="text-[clamp(24px,3vw,35px)] font-semibold tracking-[-.05em]">{standalone?'Un agente IA para tu negocio, sin necesidad de web.':'Tu web, con un agente que responde de verdad.'}</h2>
+  <p className="mt-3 text-[12px] leading-6 text-mist">{standalone
+   ?'Describe el negocio, deja que la IA proponga el agente (o rellénalo tú), pruébalo y descárgalo para insertarlo en cualquier web, tienda online o app.'
+   :'Crea un agente para el negocio, entrénalo con información autorizada y prueba su conversación antes de habilitar el widget. No necesitas contraseña adicional.'}</p>
   <div className="mt-5 flex flex-wrap gap-2">
-   <button onClick={onBack} className={secondary}><ArrowLeft size={14}/> Volver al editor</button>
-   <button onClick={onSkip} className={secondary}>Continuar sin agente</button>
+   <button onClick={onBack} className={secondary}><ArrowLeft size={14}/> {standalone?'Volver al inicio':'Volver al editor'}</button>
+   {!standalone&&<button onClick={onSkip} className={secondary}>Continuar sin agente</button>}
   </div>
   <div className="mt-6 rounded-xl border border-stroke bg-panel p-4 sm:p-5">
    <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold"><LockKeyhole size={15} className="text-brand"/> Acceso único de Studio</div>
@@ -214,7 +221,10 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
    </div>
    {option==='new'?<>
     {!proposal?<div className="rounded-lg bg-elevated p-4">
-     <p className="mb-3 text-[12px] leading-6 text-mist">Rellena tú el agente o deja que la IA proponga nombre, rol, objetivos e instrucciones a partir de los textos de esta web.</p>
+     {standalone?<label className="mb-3 block text-[11px] text-mist">Describe tu negocio: qué haces, dónde, horario, servicios o productos, precios si los das, contacto y cómo quieres que hable el agente.
+      <textarea className={field+' mt-1 min-h-[150px] resize-y'} maxLength={11000} value={businessDesc} aria-label="Descripción del negocio" onChange={e=>setBusinessDesc(e.target.value)}
+       placeholder="Ej.: Somos una clínica de fisioterapia en Valladolid. Abrimos de lunes a viernes de 9 a 20 h. Tratamos lesiones deportivas, suelo pélvico y dolor de espalda. Primera visita 45 €. Teléfono [Teléfono]. Trato cercano, de tú."/></label>
+     :<p className="mb-3 text-[12px] leading-6 text-mist">Rellena tú el agente o deja que la IA proponga nombre, rol, objetivos e instrucciones a partir de los textos de esta web.</p>}
      <div className="flex flex-wrap gap-2">
       <button disabled={busy} className={primary} onClick={()=>void generateProposal()}>{busy?<LoaderCircle size={15} className="animate-spin"/>:<Sparkles size={15}/>} {busy?'Proponiendo…':'Proponer agente con IA'}</button>
       <button disabled={busy} className={secondary} onClick={startManual}>Rellenar a mano</button>
@@ -275,10 +285,10 @@ export function AgentSetup({site,onBack,onSkip,onLinked}:{
     <p className="mb-3 text-[10px] leading-5 text-faint">Puedes crear y probar el agente sin dominio. Al publicarlo, solo responderá desde el origen HTTPS autorizado.</p>
     <div className="flex flex-wrap gap-2">
      <button disabled={busy||!origin.trim()||(option==='new'&&(!proposal||proposal.requiresApproval))||(option==='existing'&&!existingId)} className={primary} onClick={()=>void publish()}>
-      {busy?<LoaderCircle size={15} className="animate-spin"/>:<Bot size={15}/>} {site.agent&&!site.agent.origin?'Añadir el dominio al chat':'Activar agente y vincularlo a la web'}
+      {busy?<LoaderCircle size={15} className="animate-spin"/>:<Bot size={15}/>} {site.agent&&!site.agent.origin?'Añadir el dominio al chat':(standalone?'Activar agente con este dominio':'Activar agente y vincularlo a la web')}
      </button>
      {!(site.agent&&!site.agent.origin)&&<button disabled={busy||(option==='new'&&(!proposal||proposal.requiresApproval))||(option==='existing'&&!existingId)} className={secondary} onClick={()=>void publish(true)}>
-      <Download size={14}/> Vincular sin dominio y descargar
+      <Download size={14}/> {standalone?'Activar sin dominio (probar en local)':'Vincular sin dominio y descargar'}
      </button>}
     </div>
     {site.agent&&!site.agent.origin&&<p className="mt-2 text-[10.5px] leading-5 text-amber-600">El chat está vinculado pero sin dominio: aparece en la web descargada y empezará a responder en cuanto añadas aquí el dominio. No hace falta volver a descargar la web.</p>}

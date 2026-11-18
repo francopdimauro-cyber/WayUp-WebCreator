@@ -33,7 +33,7 @@ import { attachLocalImage, detectSafeImage, selectableHtmlNode, editHtmlStructur
   saveSite, siteFromHtml, siteFromZip, siteZip,
   type SiteBundle } from '@/lib/web-project-files';
 
-type Stage='home'|'create'|'editor'|'agent'|'export';
+type Stage='home'|'create'|'editor'|'agent'|'export'|'agentOnly';
 type View='preview'|'code';
 type BrowserEditorProps={onClose?():void};
 const cleanName=(value:string):string=>value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
@@ -222,6 +222,8 @@ async function streamGeneratedWeb(briefing:string,onProgress:(v:string)=>void,di
 export function WebWorkspace({onClose}:BrowserEditorProps={}){
   const [agentsOpen,setAgentsOpen]=useState(false);
   const [stage,setStage]=useState<Stage>('home');
+  // «Crear un agente» sin web: una web vacía en memoria (no se guarda) sirve de contexto mínimo al panel del agente.
+  const agentOnlySite=useMemo(()=>siteFromHtml('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Mi negocio</title></head><body></body></html>','Mi negocio'),[]);
   const [site,setSite]=useState<SiteBundle|null>(null);
   const [savedSites,setSavedSites]=useState<SiteBundle[]>([]);
   const [cloudItems,setCloudItems]=useState<CloudSiteSummary[]>([]);
@@ -1248,7 +1250,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
       </div>
       <nav aria-label="Pasos del proyecto" className="hidden items-center rounded-full border border-stroke bg-elevated p-1 lg:flex">
         {steps.map(([number,label],index)=>{
-          const current=(stage==='home'||stage==='create'?0:stage==='editor'?1:stage==='agent'?2:3);
+          const current=(stage==='home'||stage==='create'?0:stage==='editor'?1:stage==='agent'||stage==='agentOnly'?2:3);
           return <span key={number} aria-current={index===current?'step':undefined}
             className={'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors '+(index===current?'bg-panel text-ink shadow-panel':index<current?'text-mist':'text-faint')}>
             <span className={'inline-flex h-[18px] w-[18px] items-center justify-center rounded-full font-mono text-[9.5px] '+(index===current?'bg-brand text-white':index<current?'bg-brandsoft text-brand':'border border-stroke')}>{index<current?<Check size={10}/>:index+1}</span>
@@ -1272,7 +1274,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
         {stage==='create'&&<button onClick={()=>setStage('home')} className={btn}><ArrowLeft size={14}/> Volver</button>}
       </div>
       {stage==='home'?<>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <button onClick={()=>{setStage('create');setFileError('');}} className="group flex min-h-[176px] flex-col items-start gap-3 rounded-xl border border-brand/35 bg-brandsoft p-5 text-left transition hover:-translate-y-0.5 hover:border-brand hover:shadow-panel">
             <Sparkles size={25} className="text-brand"/>
             <span className="font-display text-[22px] font-semibold leading-none">Generar con IA</span>
@@ -1293,6 +1295,12 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
             <span className="font-display text-[22px] font-semibold leading-none">Empezar en blanco</span>
             <span className="text-[12px] leading-5 text-mist">Editor libre con código HTML y personalización de elementos reales.</span>
             <span className="mt-auto text-[11px] font-semibold text-brand">Nuevo lienzo →</span>
+          </button>
+          <button onClick={()=>setStage('agentOnly')} className="group flex min-h-[176px] flex-col items-start gap-3 rounded-xl border border-stroke bg-panel p-5 text-left transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-panel">
+            <Bot size={25} className="text-brand"/>
+            <span className="font-display text-[22px] font-semibold leading-none">Crear un agente</span>
+            <span className="text-[12px] leading-5 text-mist">Solo el asistente IA, sin web: descríbelo, pruébalo y llévatelo a cualquier sitio.</span>
+            <span className="mt-auto text-[11px] font-semibold text-brand">Crear agente →</span>
           </button>
         </div>
         <div className="mt-9 flex items-center justify-between"><h2 className="text-[14px] font-semibold">Tus proyectos guardados</h2><span className="font-mono text-[10px] text-faint">{savedSites.length} proyectos · guardados en este dispositivo</span></div>
@@ -1485,6 +1493,9 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
           <div className="mt-7 border-t border-stroke pt-4 text-[10px] leading-5 text-faint">Lienzo de edición protegido: aquí el JavaScript no se ejecuta. Pulsa «En vivo» para ver la web funcionando con sus scripts; todo se conserva al exportar.</div>
         </aside>
       </div>
+    </main>}
+    {stage==='agentOnly'&&<main className="scroll-subtle mx-auto w-full max-w-[790px] flex-1 overflow-y-auto px-6 py-10">
+      <AgentSetup standalone site={agentOnlySite} onBack={()=>setStage('home')} onSkip={()=>setStage('home')} onLinked={()=>setNotice('Agente activado. Descarga su ZIP para insertarlo en cualquier web o app.')}/>
     </main>}
     {site&&stage==='agent'&&<main className="scroll-subtle mx-auto w-full max-w-[790px] flex-1 overflow-y-auto px-6 py-10">
       <AgentSetup site={site} onBack={()=>setStage('editor')} onSkip={()=>setStage('export')} onLinked={agent=>void handleAgentLinked(agent)}/>
