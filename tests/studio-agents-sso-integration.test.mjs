@@ -112,3 +112,13 @@ test('Chat sin dominio: se crea, no responde desde ningún sitio y luego se le a
  const bad=await privateMod.wayupStudioOwnAgentBridge(request('/studio-api/agents/public-chats/'+chatId,{method:'PUT',data:{origin:'http://inseguro.example'}}),env,context);
  assert.equal(bad.status,400);
 });
+test('Eliminar agente: solo desde el Studio y borra contactos, chats y el agente',async()=>{
+ const db=fakeDb(),env={STUDIO_DB:db,STUDIO_OWNER_EMAIL:'owner@example.com',AI:fakeAI()};
+ const fuera=await privateMod.wayupStudioOwnAgentBridge(request('/studio-api/agents/agents/'+agentId,{method:'DELETE',siteOrigin:'https://otro.example'}),env,context);
+ assert.equal(fuera.status,403,'otro origen no puede borrar');
+ const ok=await privateMod.wayupStudioOwnAgentBridge(request('/studio-api/agents/agents/'+agentId,{method:'DELETE'}),env,context);
+ assert.equal(ok.status,200);assert.equal((await ok.json()).deleted,true);
+ const runs=db.statements.filter(x=>x.op==='run').map(x=>x.sql);
+ for(const t of ['studio_agent_leads','studio_public_chats','studio_agents'])assert.ok(runs.some(s=>s.startsWith('DELETE FROM '+t)),'borra '+t);
+ assert.ok(runs.findIndex(s=>s.startsWith('DELETE FROM studio_agents'))>runs.findIndex(s=>s.startsWith('DELETE FROM studio_public_chats')),'el agente se borra el último');
+});

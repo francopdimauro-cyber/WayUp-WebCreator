@@ -90,7 +90,7 @@ async function saTest(env,user,agent,message,history){
 }
 export async function wayupStudioOwnAgentBridge(request,env,ctx){
  const u=new URL(request.url),p=u.pathname;if(p!==SA_PREFIX&&!p.startsWith(SA_PREFIX+'/'))return null;
- if(!['GET','POST','PUT'].includes(request.method))return saJson({error:'Método no permitido.'},405);
+ if(!['GET','POST','PUT','DELETE'].includes(request.method))return saJson({error:'Método no permitido.'},405);
  if(request.method!=='GET'&&request.headers.get('Origin')!==u.origin)return saJson({error:'Origen no autorizado.'},403);
  const user=await saOwner(env,ctx);if(!user)return saJson({error:'Debes acceder mediante tu correo de Cloudflare Access.'},401);
  if(!env?.STUDIO_DB)return saJson({error:'Base de datos no disponible.'},503);
@@ -119,6 +119,16 @@ export async function wayupStudioOwnAgentBridge(request,env,ctx){
    await db.prepare('UPDATE studio_agents SET name=?,description=?,role=?,objective=?,instructions=?,knowledge=?,tools_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND owner_id=?')
     .bind(c.name,c.description,c.role,c.objective,c.instructions,c.knowledge,JSON.stringify(c.tools),a.id,user.id).run();
    return saJson({id:a.id,updated:true});
+  }
+  if(!m[2]&&request.method==='DELETE'){
+   // Borrado completo y solo del dueño: contactos, uso de sus chats, chats publicados y el agente.
+   const chats='SELECT id FROM studio_public_chats WHERE agent_id=?';
+   await db.prepare('DELETE FROM studio_agent_leads WHERE agent_id=?').bind(a.id).run();
+   await db.prepare('DELETE FROM studio_chat_usage WHERE chat_id IN ('+chats+')').bind(a.id).run().catch(()=>{});
+   await db.prepare('DELETE FROM studio_chat_daily WHERE chat_id IN ('+chats+')').bind(a.id).run().catch(()=>{});
+   await db.prepare('DELETE FROM studio_public_chats WHERE agent_id=?').bind(a.id).run();
+   await db.prepare('DELETE FROM studio_agents WHERE id=? AND owner_id=?').bind(a.id,user.id).run();
+   return saJson({id:a.id,deleted:true});
   }
   if(m[2]==='status'&&request.method==='POST'){
    const status=(await saBody(request)).status;

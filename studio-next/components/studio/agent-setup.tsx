@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback,useEffect,useState} from 'react';
-import {ArrowLeft,Bot,CheckCircle2,Download,FileArchive,Globe2,LoaderCircle,LockKeyhole,Package,ShieldCheck,Sparkles,WandSparkles,BookOpen,MessageCircle,Users} from 'lucide-react';
+import {ArrowLeft,Bot,CheckCircle2,Download,FileArchive,Globe2,LoaderCircle,LockKeyhole,Package,ShieldCheck,Sparkles,WandSparkles,BookOpen,MessageCircle,Trash2,Users} from 'lucide-react';
 import {AgentMarkdown} from './agent-markdown';
 import {downloadBytes,type SiteBundle} from '@/lib/web-project-files';
 import {agentZip,agentZipName,injectAgentIntoWebZip,type ExportableAgent} from '@/lib/agent-export';
@@ -134,6 +134,20 @@ export function AgentSetup({site,onBack,onSkip,onLinked,standalone=false}:{
   finally{setBusy(false);}
  }
  /** Datos actuales del agente guardado (la base de datos es la fuente de verdad). */
+ /** Elimina para siempre el agente elegido (con sus chats publicados y contactos), tras confirmación explícita. */
+ async function deleteAgent(){
+  const a=agentList.find(x=>x.id===existingId);if(!a)return;
+  if(!window.confirm('¿Eliminar para siempre «'+a.name+'»?\n\nSe borrarán también sus chats publicados y los contactos que haya recibido. '+
+   'El chat dejará de funcionar en las webs donde esté insertado. Esta acción NO se puede deshacer.'))return;
+  setBusy(true);setMessage('Eliminando el agente…');
+  try{
+   await backend('DELETE','/agents/'+a.id);
+   const list=await backend('GET','/agents');setAgentList(Array.isArray(list.agents)?list.agents:[]);
+   setExistingId('');setSavedAgent(s=>s?.agentId===a.id?null:s);setTestLog([]);
+   setMessage('«'+a.name+'» eliminado.'+(site.agent?.agentId===a.id?' Esta web seguía vinculada a él: vincula otro agente o expórtala sin agente.':''));
+  }catch(e){setMessage(e instanceof Error?e.message:'No se pudo eliminar el agente.');}
+  finally{setBusy(false);}
+ }
  /** Carga un agente existente en el formulario para editarlo; al guardar se actualiza ESE agente (mismo chat publicado). */
  async function editExisting(){
   setBusy(true);setMessage('Cargando el agente…');
@@ -273,7 +287,10 @@ export function AgentSetup({site,onBack,onSkip,onLinked,standalone=false}:{
      <option value="">Selecciona un agente…</option>
      {agentList.map(a=><option key={a.id} value={a.id}>{a.name} · {a.status}</option>)}
     </select>
-    {existingId&&<button type="button" disabled={busy} className={secondary+' mt-3'} onClick={()=>void editExisting()}><Sparkles size={14}/> Editar este agente (instrucciones, conocimiento y casillas)</button>}
+    {existingId&&<div className="mt-3 flex flex-wrap gap-2">
+     <button type="button" disabled={busy} className={secondary} onClick={()=>void editExisting()}><Sparkles size={14}/> Editar este agente (instrucciones, conocimiento y casillas)</button>
+     <button type="button" disabled={busy} className={secondary+' text-red-600 hover:border-red-400'} onClick={()=>void deleteAgent()}><Trash2 size={14}/> Eliminar agente</button>
+    </div>}
    </label>}
    {((option==='new'&&proposal&&!proposal.requiresApproval)||(option==='existing'&&existingId))&&
     <div className="mt-5 border-t border-stroke pt-4">
