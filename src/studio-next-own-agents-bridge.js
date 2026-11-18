@@ -84,7 +84,7 @@ async function saTest(env,user,agent,message,history){
  const tools=JSON.parse(agent.tools_json||'["text_generation"]');
  // Mismo «cerebro» que el chat publicado: lo que el dueño prueba es lo que verá el visitante.
  let model='';
- try{const text=await agentAnswer(env,agent,{message,history,tools},async messages=>{const x=await saRun(env,messages,900,0.35);model=x.model;return x.text;});
+ try{const text=await agentAnswer(env,agent,{message,history,tools},async messages=>{const x=await saRun(env,messages,900,0.2);model=x.model;return x.text;});
  const reply=agentReply(text,4000);if(!reply)throw Error('empty');return saJson({reply,tools,model});
  }catch{await saRelease(env.STUDIO_DB,user.id,'agent-test').catch(()=>{});return saJson({error:'La IA no pudo responder en la prueba.'},502)}
 }

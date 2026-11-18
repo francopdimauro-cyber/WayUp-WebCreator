@@ -73,10 +73,10 @@ async function publicChat(req,env,url){
   // Una llamada al modelo: primero los externos de agentes (STUDIO_AGENT_MODELS); Workers AI solo si está activado.
   const call=async messages=>{
    for(const ref of modelsFor(env,'agent')){
-    try{const t=(await callExternal(env,ref,messages,{maxTokens:900,temperature:0.35,timeoutMs:40000})).text;if(t)return t;}
+    try{const t=(await callExternal(env,ref,messages,{maxTokens:900,temperature:0.2,timeoutMs:40000})).text;if(t)return t;}
     catch(e){console.warn('agent-public external error',ref,String(e?.message||e).slice(0,200));}
    }
-   if(workersAIEnabled(env))return agentAiText(await env.AI.run(AGENT_MODEL,{messages,max_completion_tokens:750,temperature:0.35}));
+   if(workersAIEnabled(env))return agentAiText(await env.AI.run(AGENT_MODEL,{messages,max_completion_tokens:750,temperature:0.2}));
    return '';
   };
   try{
