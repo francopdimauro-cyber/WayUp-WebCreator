@@ -187,6 +187,7 @@ const REVIEW_PROMPT = [
   'Eres un VERIFICADOR DE DATOS. Recibes unas FUENTES, la pregunta de un visitante y el BORRADOR de respuesta de un asistente.',
   'Revisa el borrador frase a frase contra las fuentes:',
   '- Elimina cualquier nombre, cifra, resultado, alineación, cuota, fecha o afirmación que NO aparezca en las fuentes.',
+  '- Una alineación, convocatoria o resultado de un partido que aún no se ha jugado NO es oficial: preséntalo como «once probable según <fuente>» salvo que la fuente diga expresamente que es oficial o confirmado.',
   '- Corrige lo que contradiga a las fuentes o confunda partidos, fechas o equipos (por ejemplo, presentar datos de un partido pasado como del próximo).',
   '- Si tras quitar lo no respaldado falta lo que se pidió, dilo con naturalidad: «Ese dato no aparece en las fuentes consultadas».',
   '- Mantén el tono, el idioma, el formato Markdown y la mención a la fuente. No añadas datos nuevos ni explicaciones sobre tu revisión.',
@@ -245,4 +246,6 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
 }
 
 /** Limpia la respuesta del modelo (razonamiento visible, espacios). */
-export const agentReply = (text, max = 3800) => String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^\s*<think>[\s\S]*$/i, '').trim().slice(0, max);
+export const agentReply = (text, max = 3800) => String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^\s*<think>[\s\S]*$/i, '')
+  // Marcas de cita internas de algunos modelos («【1†fuente】», «【1») que no deben verse.
+  .replace(/【[^】\n]{0,80}】?/g, '').replace(/[ \t]+\n/g, '\n').trim().slice(0, max);
