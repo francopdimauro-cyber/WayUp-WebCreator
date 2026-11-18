@@ -70,3 +70,16 @@ test('Datos actuales: se busca antes de responder y una alineación inventada se
   const honesta=async m=>{assert.match(m.at(-1).content,/RESULTADOS DE INTERNET consultados automáticamente/);return 'Según la previa, la lista se dará el jueves; la alineación aún no aparece en las fuentes consultadas.';};
   assert.match(await answer({TAVILY_API_KEY:'k'},agent,{message:'¿Alineación del próximo partido?',tools:['web_search']},honesta,tavily),/aún no aparece/);
 });
+
+test('Revisión: un segundo paso corrige el borrador contra las fuentes',async()=>{
+  const {agentAnswer:answer}=await import('../src/studio-agent-brain.js');
+  const agent={name:'A',role:'r',objective:'o',instructions:'',knowledge:''};
+  const tavily=async()=>new Response(JSON.stringify({results:[{title:'Previa',url:'https://noticias.example/p',content:'Lamine Yamal vuelve a la lista. La alineación se conocerá el sábado.'}]}),{status:200});
+  const calls=[];
+  const call=async m=>{calls.push(m);
+    if(/VERIFICADOR DE DATOS/.test(m[0].content)){assert.match(m[1].content,/FUENTES[\s\S]*Lamine Yamal[\s\S]*BORRADOR/);return 'Según la previa, **Lamine Yamal** vuelve a la lista; la alineación se conocerá el sábado.';}
+    return 'Lamine Yamal vuelve y jugará de titular seguro.';};
+  const r=await answer({TAVILY_API_KEY:'k'},agent,{message:'¿Quién jugará el próximo partido?',tools:['web_search']},call,tavily);
+  assert.equal(r,'Según la previa, **Lamine Yamal** vuelve a la lista; la alineación se conocerá el sábado.');
+  assert.equal(calls.length,2,'borrador + revisión');
+});
