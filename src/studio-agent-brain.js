@@ -2,6 +2,7 @@
    para la prueba del panel y para el chat publicado en la web del cliente. */
 import {weatherData,holidayData,currencyData,wikipediaData} from './studio-agent-data.js';
 import {footballTeam,footballStandings,basketballTeam} from './studio-agent-sports.js';
+import {serperSearch} from './studio-agent-serper.js';
 
 const KNOWLEDGE_FULL = 9000;   // si cabe, el agente recibe TODO su conocimiento
 const KNOWLEDGE_MAX = 6500;    // si no, los fragmentos más pertinentes hasta este tamaño
@@ -124,7 +125,13 @@ export function agentMessages(agent, { message, history, tools }) {
 
 /* ───── Herramientas de búsqueda (gratuitas): Tavily para internet y Google Places para Maps ───── */
 const clipT = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
-export async function webSearch(env, query, fetcher = fetch, { news = false } = {}) {
+/** Búsqueda web: Tavily y, si no hay clave o falla (cupo agotado, caída), Serper (Google). */
+export async function webSearch(env, query, fetcher = fetch, opts = {}) {
+  if (env?.TAVILY_API_KEY) { try { return await tavilySearch(env, query, fetcher, opts); } catch (e) { if (!env?.SERPER_API_KEY) throw e; } }
+  if (env?.SERPER_API_KEY) return serperSearch(env, query, fetcher, opts);
+  throw Error('búsqueda web no configurada');
+}
+async function tavilySearch(env, query, fetcher = fetch, { news = false } = {}) {
   if (!env?.TAVILY_API_KEY) throw Error('búsqueda web no configurada');
   const r = await fetcher('https://api.tavily.com/search', { method: 'POST', signal: AbortSignal.timeout(15000),
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.TAVILY_API_KEY },
@@ -234,7 +241,7 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
   const current = CURRENT_RE.test(norm(opts.message)) || (String(opts.message).trim().length < 60 && CURRENT_RE.test(norm(prevUser)));
   let consulted = '';
   // 1) Consulta obligatoria: si preguntan por datos actuales y el agente puede buscar, se busca ANTES de llamar al modelo.
-  if (current && tools.includes('web_search') && env?.TAVILY_API_KEY) {
+  if (current && tools.includes('web_search') && (env?.TAVILY_API_KEY || env?.SERPER_API_KEY)) {
     try {
       const lastUser = [...(opts.history || [])].reverse().find(h => h?.role === 'user')?.text || '';
       const fallback = (opts.message + ' ' + lastUser).slice(0, 200);
@@ -249,7 +256,10 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
         if (qs.length) queries = qs;
       } catch { /* pregunta tal cual */ }
       // b) Noticias recientes (con resumen del buscador) para la primera búsqueda y web general para todas.
-      const runs = await Promise.all([webSearch(env, queries[0], fetcher, { news: true }).catch(() => ''),
+      //    Y además Google (Serper) para la búsqueda principal: su ficha deportiva y su respuesta destacada suelen traer el dato exacto.
+      const runs = await Promise.all([
+        ...(env?.SERPER_API_KEY ? [serperSearch(env, queries[0], fetcher).catch(() => '')] : []),
+        webSearch(env, queries[0], fetcher, { news: true }).catch(() => ''),
         ...queries.map(q => webSearch(env, q, fetcher).catch(() => ''))]);
       consulted = runs.filter(t => t && !/^Sin resultados/.test(t)).join('\n\n— — —\n\n');
     } catch { consulted = ''; }
