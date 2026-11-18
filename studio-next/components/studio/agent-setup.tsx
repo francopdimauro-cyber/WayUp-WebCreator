@@ -134,6 +134,19 @@ export function AgentSetup({site,onBack,onSkip,onLinked,standalone=false}:{
   finally{setBusy(false);}
  }
  /** Datos actuales del agente guardado (la base de datos es la fuente de verdad). */
+ /** Carga un agente existente en el formulario para editarlo; al guardar se actualiza ESE agente (mismo chat publicado). */
+ async function editExisting(){
+  setBusy(true);setMessage('Cargando el agente…');
+  try{
+   const a=await loadAgent();const t=a.tools||[];
+   setProposal({name:a.name,description:a.description||'',role:a.role,objective:a.objective,instructions:a.instructions,capabilities:[],requiresApproval:false});
+   setKnowledge(a.knowledge||'');setEnableKnowledge(t.includes('knowledge_lookup'));setEnableLeads(t.includes('lead_capture'));
+   setEnableWeb(t.includes('web_search'));setEnableMaps(t.includes('maps_search'));setEnableData(t.includes('data_apis'));setEnableSports(t.includes('sports_data'));
+   setSavedAgent(s=>({agentId:a.id,chatId:s?.agentId===a.id?s.chatId:undefined}));setOption('new');setTestLog([]);
+   setMessage('Editando «'+a.name+'». Cambia lo que quieras y pulsa «Guardar y probar agente»: se actualiza este mismo agente y su chat publicado.');
+  }catch(e){setMessage(e instanceof Error?e.message:'No se pudo cargar el agente.');}
+  finally{setBusy(false);}
+ }
  async function loadAgent():Promise<ExportableAgent>{
   const id=savedAgent?.agentId||existingId;
   if(!isUUID(id))throw Error('Guarda primero el agente.');
@@ -260,6 +273,7 @@ export function AgentSetup({site,onBack,onSkip,onLinked,standalone=false}:{
      <option value="">Selecciona un agente…</option>
      {agentList.map(a=><option key={a.id} value={a.id}>{a.name} · {a.status}</option>)}
     </select>
+    {existingId&&<button type="button" disabled={busy} className={secondary+' mt-3'} onClick={()=>void editExisting()}><Sparkles size={14}/> Editar este agente (instrucciones, conocimiento y casillas)</button>}
    </label>}
    {((option==='new'&&proposal&&!proposal.requiresApproval)||(option==='existing'&&existingId))&&
     <div className="mt-5 border-t border-stroke pt-4">
