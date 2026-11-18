@@ -1,6 +1,7 @@
 /* WAY UP Studio · «Cerebro» común de los agentes: el mismo prompt, memoria y búsqueda de conocimiento
    para la prueba del panel y para el chat publicado en la web del cliente. */
 import {weatherData,holidayData,currencyData,wikipediaData} from './studio-agent-data.js';
+import {footballTeam,footballStandings,basketballTeam} from './studio-agent-sports.js';
 
 const KNOWLEDGE_FULL = 9000;   // si cabe, el agente recibe TODO su conocimiento
 const KNOWLEDGE_MAX = 6500;    // si no, los fragmentos más pertinentes hasta este tamaño
@@ -46,7 +47,7 @@ export function agentHistory(raw) {
 }
 
 /** Prompt de sistema del agente. Lo estable va primero (permite caché del prompt). */
-export function agentSystemPrompt(a, { leadCapture = false, useKnowledge = true, knowledge = '', webSearch = false, mapsSearch = false, dataApis = false } = {}) {
+export function agentSystemPrompt(a, { leadCapture = false, useKnowledge = true, knowledge = '', webSearch = false, mapsSearch = false, dataApis = false, sportsData = false } = {}) {
   const clip = (v, n) => String(v || '').trim().slice(0, n);
   return [
     'Eres «' + clip(a.name, 80) + '», el asistente de este negocio en su página web. Hablas con visitantes reales que quieren resolver algo rápido.',
@@ -60,13 +61,13 @@ export function agentSystemPrompt(a, { leadCapture = false, useKnowledge = true,
     '- Responde en el idioma del visitante (por defecto, castellano de España), con tono cercano y profesional.',
     '',
     '## Lo que sabes y lo que no',
-    (webSearch || mapsSearch || dataApis)
+    (webSearch || mapsSearch || dataApis || sportsData)
       ? '- Sobre el negocio, solo sabes lo que dicen el CONOCIMIENTO y las INSTRUCCIONES DEL NEGOCIO de abajo. Para todo lo demás que se pueda consultar, usa las herramientas de consulta (más abajo) antes de responder.'
       : '- Solo sabes lo que dicen el CONOCIMIENTO y las INSTRUCCIONES DEL NEGOCIO de abajo.',
     '- Si un dato no está (precio, horario, disponibilidad, plazos, políticas…), dilo con naturalidad («Ese dato no lo tengo») y ofrece la vía de contacto que figure en el conocimiento' + (leadCapture ? ' o el botón de contacto del chat' : '') + '.',
     '- Nunca inventes precios, horarios, disponibilidad, reseñas, premios, políticas ni datos de contacto. Si dudas, no lo afirmes.',
     '',
-    ...(webSearch || mapsSearch || dataApis ? ['',
+    ...(webSearch || mapsSearch || dataApis || sportsData ? ['',
       '## Herramientas de consulta',
       'IMPORTANTE: tienes acceso a consultas en tiempo real. Si te preguntan algo que no está en el conocimiento pero se puede consultar (resultados deportivos, noticias, datos actuales, lugares, tiempo…), NO digas que no lo sabes: CONSULTA primero.',
       'Para consultar, responde ÚNICAMENTE con una de estas líneas (nada más, sin saludo ni explicación):',
@@ -76,6 +77,10 @@ export function agentSystemPrompt(a, { leadCapture = false, useKnowledge = true,
       dataApis ? 'FESTIVOS: <año y/o comunidad autónoma>   → próximos festivos en España.' : '',
       dataApis ? 'DIVISAS: <cantidad> <MONEDA> <MONEDA>   → cambio oficial, p. ej. «100 EUR USD».' : '',
       dataApis ? 'WIKIPEDIA: <tema>   → resumen de un lugar, monumento o concepto.' : '',
+      sportsData ? 'FUTBOL_EQUIPO: <nombre del equipo>   → últimos 5 resultados, forma y próximos partidos (datos oficiales).' : '',
+      sportsData ? 'FUTBOL_CLASIFICACION: <nombre de la liga, p. ej. La Liga, Premier League>   → clasificación actual.' : '',
+      sportsData ? 'BALONCESTO_EQUIPO: <nombre del equipo>   → últimos resultados y próximos partidos.' : '',
+      sportsData ? 'Para resultados y estadísticas deportivas usa estas consultas antes que BUSCAR_WEB; usa BUSCAR_WEB para lesiones, noticias o contexto.' : '',
       'Recibirás los resultados y entonces contestarás al visitante citando la fuente. Busca solo si de verdad hace falta; nunca para datos del propio negocio que ya tengas.'].filter(Boolean) : []),
     '',
     '## Límites',
@@ -109,7 +114,7 @@ export function agentMessages(agent, { message, history, tools }) {
   const lastUser = [...past].reverse().find(t => t.role === 'user')?.content || '';
   const knowledge = useKnowledge ? agentKnowledgeFor(agent.knowledge, message + ' ' + lastUser) : '';
   const system = agentSystemPrompt(agent, { leadCapture: list.includes('lead_capture'), useKnowledge, knowledge,
-    webSearch: list.includes('web_search'), mapsSearch: list.includes('maps_search'), dataApis: list.includes('data_apis') });
+    webSearch: list.includes('web_search'), mapsSearch: list.includes('maps_search'), dataApis: list.includes('data_apis'), sportsData: list.includes('sports_data') });
   return [{ role: 'system', content: system }, ...past, { role: 'user', content: String(message) }];
 }
 
@@ -145,8 +150,11 @@ const TOOLS = {
   FESTIVOS: { tool: 'data_apis', label: 'CALENDARIO DE FESTIVOS', source: 'el calendario oficial de festivos', run: (env, q, f) => holidayData(q, f) },
   DIVISAS: { tool: 'data_apis', label: 'BANCO CENTRAL EUROPEO', source: 'el Banco Central Europeo', run: (env, q, f) => currencyData(q, f) },
   WIKIPEDIA: { tool: 'data_apis', label: 'WIKIPEDIA', source: 'Wikipedia', run: (env, q, f) => wikipediaData(q, f) },
+  FUTBOL_EQUIPO: { tool: 'sports_data', label: 'API-FOOTBALL (EQUIPO)', source: 'API-Football', run: (env, q, f) => footballTeam(env, q, f) },
+  FUTBOL_CLASIFICACION: { tool: 'sports_data', label: 'API-FOOTBALL (CLASIFICACIÓN)', source: 'API-Football', run: (env, q, f) => footballStandings(env, q, f) },
+  BALONCESTO_EQUIPO: { tool: 'sports_data', label: 'API-BASKETBALL (EQUIPO)', source: 'API-Basketball', run: (env, q, f) => basketballTeam(env, q, f) },
 };
-const TOOL_LINE = /^\s*(BUSCAR_WEB|BUSCAR_MAPA|TIEMPO|FESTIVOS|DIVISAS|WIKIPEDIA)\s*:\s*(.{1,200})\s*$/im;
+const TOOL_LINE = /^\s*(BUSCAR_WEB|BUSCAR_MAPA|TIEMPO|FESTIVOS|DIVISAS|WIKIPEDIA|FUTBOL_EQUIPO|FUTBOL_CLASIFICACION|BALONCESTO_EQUIPO)\s*:\s*(.{1,200})\s*$/im;
 /** Respuesta completa del agente con una búsqueda como máximo por mensaje.
  *  call(messages) → texto del modelo. Si pide BUSCAR_WEB/BUSCAR_MAPA (y la herramienta está activada), se busca y se le
  *  devuelven los resultados como DATOS externos para que conteste. */

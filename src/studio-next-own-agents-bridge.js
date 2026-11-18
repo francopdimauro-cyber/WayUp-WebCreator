@@ -3,7 +3,7 @@ import {callExternal,modelsFor,workersAIEnabled} from './studio-ai-providers.js'
 import {agentAnswer,agentReply} from './studio-agent-brain.js';
 const SA_PREFIX='/studio-api/agents',SA_AUD='78890161c85752fcd44d08bde44510aac74aa51d9ee12371327fa6875ac6d8a6';
 const SA_MODEL='@cf/google/gemma-4-26b-a4b-it',SA_UUID=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
-const SA_TOOLS=['text_generation','knowledge_lookup','lead_capture','web_search','maps_search','data_apis'];
+const SA_TOOLS=['text_generation','knowledge_lookup','lead_capture','web_search','maps_search','data_apis','sports_data'];
 function saJson(v,status=200){return new Response(JSON.stringify(v),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'private, no-store','x-content-type-options':'nosniff'}})}
 async function saOwner(env,ctx){
  if(!ctx?.access||ctx.access.aud!==SA_AUD)return null;
