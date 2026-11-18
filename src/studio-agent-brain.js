@@ -129,11 +129,16 @@ export async function webSearch(env, query, fetcher = fetch, { news = false } = 
   const r = await fetcher('https://api.tavily.com/search', { method: 'POST', signal: AbortSignal.timeout(15000),
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.TAVILY_API_KEY },
     // Actualidad: solo noticias de los últimos días (evita artículos antiguos); el resto, búsqueda general.
-    body: JSON.stringify({ query: clipT(query, 200), search_depth: news ? 'advanced' : 'basic', max_results: news ? 6 : 4, include_answer: false, include_images: false,
+    // include_answer: resumen directo del buscador (suele traer el dato concreto, p. ej. un marcador), basado en sus resultados.
+    body: JSON.stringify({ query: clipT(query, 200), search_depth: news ? 'advanced' : 'basic', max_results: news ? 6 : 4, include_answer: news ? 'basic' : false, include_images: false,
       ...(news ? { topic: 'news', days: 7 } : {}) }) });
   if (!r.ok) throw Error('Tavily ' + r.status);
-  const hits = ((await r.json())?.results || []).slice(0, 4);
-  return hits.map((h, i) => (i + 1) + '. ' + clipT(h.title, 120) + ' — ' + clipT(h.url, 200) + '\n' + clipT(h.content, 500)).join('\n\n') || 'Sin resultados.';
+  const body = await r.json();
+  const hits = (body?.results || []).slice(0, 5);
+  const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return 'web'; } };
+  const list = hits.map((h, i) => (i + 1) + '. [' + host(h.url) + '] ' + clipT(h.title, 120) + ' — ' + clipT(h.url, 200) + '\n' + clipT(h.content, 600)).join('\n\n');
+  const answer = typeof body?.answer === 'string' && body.answer.trim() ? 'RESUMEN DEL BUSCADOR (a partir de estas webs): ' + clipT(body.answer, 600) + '\n\n' : '';
+  return (answer + list) || 'Sin resultados.';
 }
 export async function mapsSearch(env, query, fetcher = fetch) {
   if (!env?.GOOGLE_MAPS_API_KEY) throw Error('búsqueda en mapas no configurada');
@@ -165,6 +170,7 @@ const TOOL_LINE = /^\s*(BUSCAR_WEB|BUSCAR_MAPA|TIEMPO|FESTIVOS|DIVISAS|WIKIPEDIA
  *  call(messages) → texto del modelo. Si pide BUSCAR_WEB/BUSCAR_MAPA (y la herramienta está activada), se busca y se le
  *  devuelven los resultados como DATOS externos para que conteste. */
 const groundRule = source => 'Responde al visitante usando EXCLUSIVAMENTE lo que aparece en esos resultados (indica la fuente: ' + source + ').\n' +
+  'Cita la fuente por su NOMBRE (el medio o web entre corchetes, p. ej. «según marca.com» o «según ESPN»), nunca «los enlaces proporcionados». Si no das ningún dato porque no aparece, no pongas línea de fuente.\n' +
   'PROHIBIDO añadir nombres, cifras, alineaciones, resultados o fechas que no estén escritos literalmente arriba. Si falta algo de lo que pidió (por ejemplo, las alineaciones aún no se han publicado), dilo claramente: «Ese dato no aparece en las fuentes consultadas». Es mejor una respuesta corta y cierta que una larga inventada. No vuelvas a buscar.';
 /** ¿Pregunta por datos actuales que no pueden salir de la memoria del modelo? */
 const CURRENT_RE = /\b(alineaci|convocat|once\b|titular|resultad|marcador|cuota|apuesta|clasificaci|jornada|partido|lesi[oó]n|lesionad|baja|fichaj|noticia|hoy|ayer|ma[nñ]ana|esta semana|fin de semana|[uú]ltim|pr[oó]xim|actual)/i;
@@ -190,6 +196,8 @@ const REVIEW_PROMPT = [
   '- Una alineación, convocatoria o resultado de un partido que aún no se ha jugado NO es oficial: preséntalo como «once probable según <fuente>» salvo que la fuente diga expresamente que es oficial o confirmado.',
   '- Corrige lo que contradiga a las fuentes o confunda partidos, fechas o equipos (por ejemplo, presentar datos de un partido pasado como del próximo).',
   '- Si tras quitar lo no respaldado falta lo que se pidió, dilo con naturalidad: «Ese dato no aparece en las fuentes consultadas».',
+  '- Si el RESUMEN DEL BUSCADOR da el dato pedido (por ejemplo, un marcador), puedes usarlo citando la web de la que procede.',
+  '- La fuente se cita por su nombre (p. ej. «según marca.com»), nunca «los enlaces proporcionados»; si no queda ningún dato, quita la línea de fuente.',
   '- Mantén el tono, el idioma, el formato Markdown y la mención a la fuente. No añadas datos nuevos ni explicaciones sobre tu revisión.',
   'Devuelve SOLO la respuesta final para el visitante.',
 ].join('\n');
@@ -206,9 +214,10 @@ export async function agentAnswer(env, agent, opts, call, fetcher = fetch) {
   if (current && tools.includes('web_search') && env?.TAVILY_API_KEY) {
     try {
       const lastUser = [...(opts.history || [])].reverse().find(h => h?.role === 'user')?.text || '';
-      consulted = await webSearch(env, (opts.message + ' ' + lastUser).slice(0, 200), fetcher, { news: true });
-      // Si en noticias recientes no hay nada, búsqueda general.
-      if (/^Sin resultados/.test(consulted)) consulted = await webSearch(env, (opts.message + ' ' + lastUser).slice(0, 200), fetcher);
+      // Noticias recientes y búsqueda general a la vez: más cobertura (crónicas, fichas de resultados, calendarios).
+      const q = (opts.message + ' ' + lastUser).slice(0, 200);
+      const [recent, general] = await Promise.all([webSearch(env, q, fetcher, { news: true }).catch(() => ''), webSearch(env, q, fetcher).catch(() => '')]);
+      consulted = [recent, general].filter(t => t && !/^Sin resultados/.test(t)).join('\n\n— — —\n\n');
     } catch { consulted = ''; }
   }
   const withPre = consulted ? [...messages.slice(0, -1), { role: 'user', content: messages.at(-1).content + '\n\n' +

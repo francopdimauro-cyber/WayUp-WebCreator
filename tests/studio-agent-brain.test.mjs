@@ -65,7 +65,7 @@ test('Datos actuales: se busca antes de responder y una alineación inventada se
   const tavily=async(u,init)=>{seen.push(JSON.parse(init.body).query);return new Response(JSON.stringify({results:[{title:'Previa',url:'https://noticias.example/previa',content:'La selección jugará el sábado. El seleccionador dará la lista el jueves.'}]}),{status:200});};
   const inventa=async()=>'**Portero:** Unai Simón. **Defensas:** Carvajal, Laporte, Torres, Alba. **Medios:** Rodri, Pedri, Gavi.';
   const r=await answer({TAVILY_API_KEY:'k'},agent,{message:'Dame la alineación de España para el próximo partido',tools:['web_search']},inventa,tavily);
-  assert.equal(seen.length,1,'la búsqueda se hace sola, sin esperar al modelo');
+  assert.equal(seen.length,2,'la búsqueda (noticias + general) se hace sola, sin esperar al modelo');
   assert.match(r,/No tengo ese dato verificado/);
   const honesta=async m=>{assert.match(m.at(-1).content,/RESULTADOS DE INTERNET consultados automáticamente/);return 'Según la previa, la lista se dará el jueves; la alineación aún no aparece en las fuentes consultadas.';};
   assert.match(await answer({TAVILY_API_KEY:'k'},agent,{message:'¿Alineación del próximo partido?',tools:['web_search']},honesta,tavily),/aún no aparece/);
