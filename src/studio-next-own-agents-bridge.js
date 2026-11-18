@@ -161,7 +161,7 @@ export async function wayupStudioOwnAgentBridge(request,env,ctx){
   if(Number(q?.n||0)>=8)return saJson({error:'Máximo 8 dominios por agente.'},429);
   const chatId=crypto.randomUUID();
   await db.prepare('INSERT INTO studio_public_chats(id,agent_id,origin,title,greeting,enabled,daily_limit,per_visitor_limit) VALUES (?,?,?,?,?,1,?,?)')
-   .bind(chatId,id,origin,saText(data.title,80)||a.name,saText(data.greeting,180)||'¡Hola! ¿En qué puedo ayudarte?',Math.min(200,Math.max(1,Number(data.dailyLimit)||200)),Math.min(12,Math.max(1,Number(data.perVisitorLimit)||12))).run();
+   .bind(chatId,id,origin,saText(data.title,80)||a.name,saText(data.greeting,180)||'¡Hola! ¿En qué puedo ayudarte?',Math.min(200,Math.max(1,Number(data.dailyLimit)||200)),Math.min(20,Math.max(1,Number(data.perVisitorLimit)||20))).run();
   return saJson({id:chatId,enabled:true},201);
  }
  if(/^\/public-chats\/[0-9a-f-]{36}$/i.test(path)&&request.method==='PUT'){
