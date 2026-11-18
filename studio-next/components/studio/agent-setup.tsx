@@ -214,7 +214,7 @@ export function AgentSetup({site,onBack,onSkip,onLinked,standalone=false}:{
     if(!isUUID(chatId)){
      const result=await backend('POST','/public-chats',{agentId:id,title:proposal?.name||site.name,
       greeting:'¡Hola! ¿En qué puedo ayudarte?',allowedOrigins:domain?[domain]:[],enabled:true,
-      dailyLimit:200,perVisitorLimit:20});
+      dailyLimit:200,perVisitorLimit:50});
      chatId=result.id;
     }
    }

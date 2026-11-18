@@ -34,7 +34,7 @@ async function agentVisitorHash(req,chat,day){
 }
 async function agentCheckAndCharge(db,req,row,limitType){
  const day=new Date().toISOString().slice(0,10),hash=await agentVisitorHash(req,row.id,day);
- const visitorMax=Number(row.per_visitor_limit)||20,globalMax=row.origin?(Number(row.daily_limit)||200):Math.min(40,Number(row.daily_limit)||200);
+ const visitorMax=Number(row.visitor_limit)||Number(row.per_visitor_limit)||20,globalMax=row.origin?(Number(row.daily_limit)||200):Math.min(40,Number(row.daily_limit)||200);
  await db.prepare('INSERT OR IGNORE INTO studio_chat_usage(chat_id,day,visitor_hash,used) VALUES (?,?,?,0)').bind(row.id,day,hash).run();
  const r=await db.prepare('UPDATE studio_chat_usage SET used=used+1 WHERE chat_id=? AND day=? AND visitor_hash=? AND used<?')
  .bind(row.id,day,hash,visitorMax).run();
