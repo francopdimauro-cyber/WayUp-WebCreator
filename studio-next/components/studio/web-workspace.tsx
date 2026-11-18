@@ -1264,7 +1264,7 @@ export function WebWorkspace({onClose}:BrowserEditorProps={}){
       </div>
     </header>
     {(notice||fileError)&&<div role="status" className={'pointer-events-none fixed bottom-5 left-1/2 z-[85] max-w-[min(680px,calc(100vw-32px))] -translate-x-1/2 rounded-lg border px-4 py-2.5 text-[12px] shadow-pop '+(fileError?'border-red-500/40 bg-red-950/90 text-red-200':'border-stroke bg-panel text-ink')}>{fileError||notice}</div>}
-    {(stage==='home'||stage==='create')&&<main className="scroll-subtle mx-auto w-full max-w-[1090px] flex-1 overflow-y-auto px-5 py-8 sm:px-9">
+    {(stage==='home'||stage==='create')&&<main className={'scroll-subtle w-full flex-1 overflow-y-auto py-8 '+(stage==='home'?'px-[max(1.25rem,calc((100%_-_1440px)/2))] sm:px-[max(2.25rem,calc((100%_-_1440px)/2))]':'px-[max(1.25rem,calc((100%_-_1090px)/2))] sm:px-[max(2.25rem,calc((100%_-_1090px)/2))]')}>
       <div className="mb-8 flex items-end justify-between gap-3">
         <div><div className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[.22em] text-brand">{stage==='create'?'Crear web':'Mis webs'}</div>
           <h1 className="font-display text-[clamp(34px,4.4vw,54px)] font-semibold leading-[1.02] tracking-[-.02em]">Una web real. <em className="font-medium text-brand">Tu diseño.</em> Tu agente.</h1>
